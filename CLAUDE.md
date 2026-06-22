@@ -78,15 +78,20 @@ Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Chart.js ladataan CD
 **1. Kohteen haku:**
 - Pudotusvalikko `#hakuTyyppi`: Yksiö / Kaksio / Kolmio+ / Rivitalo (ohjaa molemmat API-kutsut)
 - Osoitekenttä → "Hae markkinatiedot" → `GET /api/geocode` → `GET /api/hinnat` + `GET /api/vuokrat`
-- Market-badget näyttävät alueen neliöhinnan ja keskivuokran
+- Market-badget näyttävät alueen neliöhinnan, keskivuokran ja **5-vuoden hintatrendin** (CAGR, vihreä/punainen)
+- Neliöhinta-badge: `mPriceLabel` (tyyppi), `mPrice` (€/m²), `mPriceQ` (kvartaali), `mPriceTrend` (trendi)
 
 **2. Laskentatiedot:**
 - Velaton hinta, neliöt, oma pääoma, vuokra/kk, laina-aika, korko, hoitovastike, remonttivara, arvonnousu
 - Asuntotyyppi-toggle: Asunto-osake (2 %) | Kiinteistö (4 %) – ohjaa varainsiirtoveroa
 
 **3. Remontit:**
-- Lista kertaluonteisista remonteista: kuvaus, vuosi (1–15), summa (€), tyyppi (taloyhtiö/oma)
-- Lisätään `totalRepairs = p.repairs + remoSum` ko. vuodelle – vaikuttaa kassavirtaan ja veroon
+- Lista remonteista: kuvaus, vuosi (1–15), summa (€), tyyppi (taloyhtiö/oma), maksu
+- **Maksu-vaihtoehto taloyhtiölle:** Kertasuoritus | Rahoitusvastike (annuiteettilaina → €/kk)
+- **Maksu-vaihtoehto omalle:** Kertasuoritus | Laina (annuiteettilaina → €/kk)
+- Kun laina/rahoitusvastike valittu: näytetään laajennettu rivi korko + laina-aika + laskettu €/kk
+- `simulate()`: kertasuoritus lisätään ko. vuodelle; laina lisätään `annuity × 12` jokaiselle vuodelle `vuosi`…`vuosi + lainaVuodet - 1`
+- `totalRepairs = p.repairs + remoKerta + remoLainaMo * 12`
 
 **Tulokset (5 / 10 / 15 v):**
 - KPI-kortit: kassavirta/kk, oma pääoma, myyntivoitto, vuosituotto p.a.
@@ -102,9 +107,12 @@ Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Chart.js ladataan CD
 | `simulate(p, mode)` | Laskentamoottori, palauttaa `{ yearly, horizons }` |
 | `calculate()` | Validoi kentät, kutsuu simulaatioita, näyttää tulokset |
 | `fetchMarket()` | Geocode → hinnat + vuokrat, käyttää `hakuTyyppi`-valintaa |
+| `onSqmChange()` | Päivittää hoitovastike (4 €/m²) ja vuokra-arvion **aina** neliöiden muuttuessa |
 | `loadKohde(id)` | Täyttää lomakkeen, palauttaa markkinatiedot + remontit |
 | `clearForm()` | Tyhjentää kaiken, nollaa `activeKohdeId` |
 | `addRemontti()` / `renderRemontit()` | Remontit-listan hallinta |
+| `calcTrend(historia)` | Laskee CAGR viimeiseltä 5v `historia`-objektista |
+| `showPriceTrend(historia)` | Näyttää trendin `#mPriceTrend`-elementissä |
 | `h_(k, mode, field)` | Lukee horizons-objektin avaimella string tai number |
 
 ### State-muuttujat
@@ -115,7 +123,7 @@ let res = null;         // { ind, comp, p } – viimeisin laskentatulos
 let horizon = 5;        // aktiivinen horisontti (5/10/15)
 let assetType = 'osake';
 let activeKohdeId = null;
-let remontit = [];      // [{ id, nimi, vuosi, summa, tyyppi }]
+let remontit = [];      // [{ id, nimi, vuosi, summa, tyyppi, rahoitus, lainaKorko, lainaVuodet }]
 let _rId = 0;           // remontit-id-laskuri
 let savedKohteet = [];
 let compH = 5;          // vertailutaulukon horisontti
@@ -149,6 +157,8 @@ SQLite, luodaan automaattisesti käynnistyksessä.
 **Taulu `kohteet`:** `id, nimi, luotu (ISO), params (JSON), tulokset (JSON)`
 
 **params-kentät:** `price, sqm, equity, rent, loanYears, rate, maintenance, repairs, appreciation, assetType, address, hakuTyyppi, geo, hinnat, vuokrat, remontit`
+
+**remontit-alkion rakenne:** `{ id, nimi, vuosi, summa, tyyppi ('taloyhtiö'|'oma'), rahoitus ('kertasuoritus'|'rahoitusvastike'|'laina'), lainaKorko, lainaVuodet }`
 
 **tulokset-rakenne:** `{ ind: { yearly, horizons }, comp: { yearly, horizons } }`
 

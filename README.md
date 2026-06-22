@@ -5,9 +5,10 @@ Yksinkertainen web-sovellus sijoitusasunnon kannattavuuden arviointiin 5, 10 ja 
 ## Ominaisuudet
 
 - **Automaattiset markkinatiedot** – syötä osoite ja sovellus hakee alueen neliöhinnat ja vuokramarkkinahinnat suoraan Tilastokeskuksen avoimesta API:sta
+- **Hintatrendi** – neliöhinta-badgessa näkyy alueen 5 vuoden hintakehitys (%/v), joka auttaa arvioimaan realistisen arvonnousu-oletuksen
 - **Asuntotyyppikohtainen haku** – yksiö, kaksio, kolmio+ tai rivitalo ohjaa molemmat markkinatietohaut
 - **Kaksi sijoitusmuotoa** – yksityishenkilö vs. osakeyhtiö verotuksineen rinnakkain
-- **Remonttisuunnittelu** – lisää taloyhtiön ja omat remontit vuosikohtaisesti; ne huomioidaan kassavirtalaskennassa
+- **Remonttisuunnittelu** – lisää taloyhtiön ja omat remontit vuosikohtaisesti; valitse kertasuoritus, rahoitusvastike tai laina – kuukausierä lasketaan automaattisesti
 - **Graafit ja taulukot** – kassavirtakaavio, varallisuuden kehitys ja vuosikohtainen erittely
 - **Kohteiden tallennus** – tallenna useita kohteita ja vertaile niitä rinnakkain
 
@@ -33,7 +34,7 @@ Avaa selaimessa: [http://localhost:8000](http://localhost:8000)
 
 1. **Kohteen haku** – valitse asuntotyyppi, kirjoita osoite ja hae markkinatiedot
 2. **Laskentatiedot** – täytä hinta, neliöt, oma pääoma, vuokra, lainaehdot ja vastike
-3. **Remontit** – lisää tiedossa olevat taloyhtiön ja omat remontit vuosikohtaisesti
+3. **Remontit** – lisää tiedossa olevat taloyhtiön ja omat remontit; valitse kertasuoritus, rahoitusvastike tai laina
 4. Paina **Laske sijoituksen tuotto** ja tarkastele tuloksia eri horisonteilla
 5. Tallenna kohde sivupalkkiin ja vertaile useita kohteita rinnakkain
 

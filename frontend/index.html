@@ -107,11 +107,17 @@ header p { opacity: 0.75; font-size: 0.8rem; }
 .btn-ghost:hover { color: #64748b; }
 
 /* Remonttirivit */
-.remontti-row { display: grid; grid-template-columns: 1fr 60px 90px 110px 28px; gap: 0.4rem; align-items: center; margin-bottom: 0.35rem; }
+.remontti-cols { grid-template-columns: 1fr 58px 96px 100px 130px 28px; }
+.remontti-row { display: grid; gap: 0.4rem; align-items: center; margin-bottom: 0.2rem; }
 .remontti-row input, .remontti-row select { padding: 0.35rem 0.5rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.83rem; width: 100%; }
 .remontti-row input:focus, .remontti-row select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
-.remontti-header { display: grid; grid-template-columns: 1fr 60px 90px 110px 28px; gap: 0.4rem; margin-bottom: 0.3rem; }
+.remontti-header { display: grid; gap: 0.4rem; margin-bottom: 0.3rem; }
 .remontti-header span { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+.remontti-laina { display: grid; grid-template-columns: 1fr 100px 100px auto; gap: 0.4rem; padding: 0.1rem 0 0.4rem 0.5rem; border-left: 2px solid #e2e8f0; margin: 0 0 0.35rem 0; }
+.remontti-laina input { padding: 0.3rem 0.5rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; width: 100%; }
+.remontti-laina input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
+.remontti-laina-label { font-size: 0.65rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; }
+.remontti-laina-mo { font-size: 0.8rem; color: #2563eb; font-weight: 700; display: flex; align-items: flex-end; padding-bottom: 0.05rem; }
 .btn-del { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; }
 .btn-del:hover { color: #dc2626; }
 .remontti-total { font-size: 0.78rem; color: #64748b; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9; }
@@ -171,6 +177,7 @@ header p { opacity: 0.75; font-size: 0.8rem; }
         <div class="mlabel" id="mPriceLabel">Neliöhinta</div>
         <div class="mvalue" id="mPrice">—</div>
         <div class="msub" id="mPriceQ">—</div>
+        <div id="mPriceTrend" style="font-size:0.65rem;font-weight:700;margin-top:0.1rem"></div>
       </div>
       <div class="market-badge">
         <div class="mlabel">Vuokra / m² / kk</div>
@@ -240,22 +247,27 @@ header p { opacity: 0.75; font-size: 0.8rem; }
           </div>
           <div class="hint" id="taxHint">Varainsiirtovero: 2 %</div>
         </div>
+        <div class="field">
+          <label>Osakeyhtiön hallinto- ja kirjanpitokulut (€/v)</label>
+          <input type="number" id="adminCost" value="1500" min="0" />
+          <div class="hint">Käytetään vain Oy-laskelmassa — kirjanpito, tilintarkastus, yhtiön ylläpito. Tyypillisesti 1 000–2 500 €/v.</div>
+        </div>
       </div>
     </div>
-
-    <div class="card" id="remonttiCard">
-      <div class="card-title">3. Remontit</div>
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.85rem">Tiedossa olevat taloyhtiön remontit ja omat suunnitellut remontit. Lisätään kertaluonteisina kuluina laskettavalle vuodelle.</p>
-      <div class="remontti-header">
-        <span>Kuvaus</span><span>Vuosi</span><span>Summa (€)</span><span>Tyyppi</span><span></span>
-      </div>
-      <div id="remonttilista"></div>
-      <div class="remontti-total" id="remonttitotal" style="display:none"></div>
-      <button class="btn-ghost" style="margin-top:0.5rem;font-size:0.83rem" onclick="addRemontti()">+ Lisää remontti</button>
-    </div>
-
-    <button class="btn-primary" onclick="calculate()">Laske sijoituksen tuotto</button>
   </div>
+
+  <div class="card" id="remonttiCard">
+    <div class="card-title">3. Remontit</div>
+    <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.85rem">Tiedossa olevat taloyhtiön remontit ja omat suunnitellut remontit. Lisätään kertaluonteisina kuluina laskettavalle vuodelle.</p>
+    <div class="remontti-header remontti-cols">
+      <span>Kuvaus</span><span>Vuosi</span><span>Summa (€)</span><span>Tyyppi</span><span>Maksu</span><span></span>
+    </div>
+    <div id="remonttilista"></div>
+    <div class="remontti-total" id="remonttitotal" style="display:none"></div>
+    <button class="btn-ghost" style="margin-top:0.5rem;font-size:0.83rem" onclick="addRemontti()">+ Lisää remontti</button>
+  </div>
+
+  <button class="btn-primary" onclick="calculate()">Laske sijoituksen tuotto</button>
 
   <!-- Vertailutaulukko – aina näkyvissä -->
   <div class="card" id="savedSection">
@@ -384,12 +396,33 @@ function onPriceChange() {
 
 function onSqmChange() {
   const sqm = val('sqm');
-  if (sqm > 0 && !get('maintenance').value) {
+  if (sqm > 0) {
     get('maintenance').value = Math.round(sqm * 4);
+    if (mkt.vuokrat?.vuokra_per_m2_kk) {
+      get('rent').value = Math.round(sqm * mkt.vuokrat.vuokra_per_m2_kk);
+    }
   }
-  if (sqm > 0 && mkt.vuokrat?.vuokra_per_m2_kk && !get('rent').value) {
-    get('rent').value = Math.round(sqm * mkt.vuokrat.vuokra_per_m2_kk);
-  }
+}
+
+function calcTrend(historia) {
+  if (!historia) return null;
+  const years = Object.keys(historia).sort();
+  if (years.length < 2) return null;
+  const n = Math.min(5, years.length - 1);
+  const y0 = years[years.length - 1 - n];
+  const y1 = years[years.length - 1];
+  const v0 = historia[y0], v1 = historia[y1];
+  if (!v0 || !v1) return null;
+  return { cagr: ((Math.pow(v1 / v0, 1 / n) - 1) * 100).toFixed(1), n, y0, y1 };
+}
+
+function showPriceTrend(historia) {
+  const el = get('mPriceTrend');
+  const t = calcTrend(historia);
+  if (!t) { el.textContent = ''; return; }
+  const sign = parseFloat(t.cagr) >= 0 ? '+' : '';
+  el.textContent = `${t.n}v trendi: ${sign}${t.cagr} %/v`;
+  el.style.color = parseFloat(t.cagr) >= 0 ? '#16a34a' : '#dc2626';
 }
 
 const _TYYPPI_MAP = {
@@ -429,11 +462,12 @@ async function fetchMarket() {
     get('mPriceLabel').textContent = `Neliöhinta (${tm.label.toLowerCase()})`;
     get('mPrice').textContent = mkt.hinnat?.viimeisin_neliohinta ? fmt(mkt.hinnat.viimeisin_neliohinta) + ' €/m²' : 'Ei tietoa';
     get('mPriceQ').textContent = mkt.hinnat?.kvartaali || '';
+    showPriceTrend(mkt.hinnat?.historia);
     get('mRent').textContent = mkt.vuokrat?.vuokra_per_m2_kk ? mkt.vuokrat.vuokra_per_m2_kk.toFixed(1) : 'Ei tietoa';
     get('marketInfo').style.display = 'grid';
 
     const sqm = val('sqm');
-    if (sqm > 0 && mkt.vuokrat?.vuokra_per_m2_kk && !get('rent').value) {
+    if (sqm > 0 && mkt.vuokrat?.vuokra_per_m2_kk) {
       get('rent').value = Math.round(sqm * mkt.vuokrat.vuokra_per_m2_kk);
     }
 
@@ -456,7 +490,7 @@ get('address').addEventListener('keypress', e => { if (e.key === 'Enter') fetchM
 
 function addRemontti(preset) {
   const id = ++_rId;
-  remontit.push(preset ? { ...preset, id } : { id, nimi: '', vuosi: 5, summa: 0, tyyppi: 'taloyhtiö' });
+  remontit.push(preset ? { ...preset, id } : { id, nimi: '', vuosi: 5, summa: 0, tyyppi: 'taloyhtiö', rahoitus: 'kertasuoritus', lainaKorko: 3.5, lainaVuodet: 10 });
   renderRemontit();
 }
 
@@ -468,35 +502,73 @@ function removeRemontti(id) {
 function updateRemontti(id, field, value) {
   const r = remontit.find(r => r.id === id);
   if (!r) return;
-  r[field] = (field === 'vuosi' || field === 'summa') ? (parseFloat(value) || 0) : value;
-  renderRemonttiTotal();
+  r[field] = (['vuosi','summa','lainaKorko','lainaVuodet'].includes(field)) ? (parseFloat(value) || 0) : value;
+  // reset incompatible rahoitus when tyyppi changes
+  if (field === 'tyyppi') {
+    if (value === 'oma' && r.rahoitus === 'rahoitusvastike') r.rahoitus = 'kertasuoritus';
+    if (value === 'taloyhtiö' && r.rahoitus === 'laina') r.rahoitus = 'kertasuoritus';
+  }
+  renderRemontit();
 }
 
 function renderRemonttiTotal() {
   const el = get('remonttitotal');
   if (!remontit.length) { el.style.display = 'none'; return; }
-  const sum = remontit.reduce((s, r) => s + (r.summa || 0), 0);
+  const kerta = remontit.filter(r => r.rahoitus === 'kertasuoritus');
+  const lainat = remontit.filter(r => r.rahoitus !== 'kertasuoritus');
+  const parts = [];
+  if (kerta.length) parts.push(`${fmt(kerta.reduce((s,r) => s + (r.summa||0), 0))} € kertasuorituksina`);
+  if (lainat.length) {
+    const mo = lainat.reduce((s,r) => s + annuity(r.summa||0, r.lainaKorko||0, r.lainaVuodet||1), 0);
+    parts.push(`${fmt(Math.round(mo))} €/kk rahoitusmaksuja`);
+  }
   el.style.display = 'block';
-  el.textContent = `${remontit.length} remonttia · ${fmt(sum)} € yhteensä`;
+  el.textContent = parts.join(' · ');
 }
 
 function renderRemontit() {
   const list = get('remonttilista');
   if (!remontit.length) { list.innerHTML = ''; get('remonttitotal').style.display = 'none'; return; }
-  list.innerHTML = remontit.map(r => `
-    <div class="remontti-row">
-      <input type="text" value="${r.nimi.replace(/"/g,'&quot;')}" placeholder="esim. Putkiremontti"
-        onchange="updateRemontti(${r.id},'nimi',this.value)" />
-      <input type="number" value="${r.vuosi || ''}" min="1" max="15" placeholder="1–15"
-        onchange="updateRemontti(${r.id},'vuosi',this.value)" />
-      <input type="number" value="${r.summa || ''}" placeholder="esim. 5000"
-        onchange="updateRemontti(${r.id},'summa',this.value)" />
-      <select onchange="updateRemontti(${r.id},'tyyppi',this.value)">
-        <option value="taloyhtiö"${r.tyyppi==='taloyhtiö'?' selected':''}>Taloyhtiö</option>
-        <option value="oma"${r.tyyppi==='oma'?' selected':''}>Oma</option>
-      </select>
-      <button class="btn-del" onclick="removeRemontti(${r.id})" title="Poista">✕</button>
-    </div>`).join('');
+  list.innerHTML = remontit.map(r => {
+    const isLaina = r.rahoitus !== 'kertasuoritus';
+    const mo = isLaina ? annuity(r.summa||0, r.lainaKorko||0, r.lainaVuodet||1) : 0;
+    const rahoitusOpts = r.tyyppi === 'taloyhtiö'
+      ? `<option value="kertasuoritus"${r.rahoitus==='kertasuoritus'?' selected':''}>Kertasuoritus</option>
+         <option value="rahoitusvastike"${r.rahoitus==='rahoitusvastike'?' selected':''}>Rahoitusvastike</option>`
+      : `<option value="kertasuoritus"${r.rahoitus==='kertasuoritus'?' selected':''}>Kertasuoritus</option>
+         <option value="laina"${r.rahoitus==='laina'?' selected':''}>Laina</option>`;
+    return `
+    <div>
+      <div class="remontti-row remontti-cols">
+        <input type="text" value="${r.nimi.replace(/"/g,'&quot;')}" placeholder="esim. Putkiremontti"
+          onchange="updateRemontti(${r.id},'nimi',this.value)" />
+        <input type="number" value="${r.vuosi||''}" min="1" max="15" placeholder="1–15"
+          onchange="updateRemontti(${r.id},'vuosi',this.value)" />
+        <input type="number" value="${r.summa||''}" placeholder="esim. 5000"
+          onchange="updateRemontti(${r.id},'summa',this.value)" />
+        <select onchange="updateRemontti(${r.id},'tyyppi',this.value)">
+          <option value="taloyhtiö"${r.tyyppi==='taloyhtiö'?' selected':''}>Taloyhtiö</option>
+          <option value="oma"${r.tyyppi==='oma'?' selected':''}>Oma</option>
+        </select>
+        <select onchange="updateRemontti(${r.id},'rahoitus',this.value)">${rahoitusOpts}</select>
+        <button class="btn-del" onclick="removeRemontti(${r.id})" title="Poista">✕</button>
+      </div>
+      ${isLaina ? `<div class="remontti-laina">
+        <div></div>
+        <div>
+          <div class="remontti-laina-label">Korko (%/v)</div>
+          <input type="number" value="${r.lainaKorko??3.5}" step="0.1" min="0"
+            onchange="updateRemontti(${r.id},'lainaKorko',this.value)" />
+        </div>
+        <div>
+          <div class="remontti-laina-label">Laina-aika (v)</div>
+          <input type="number" value="${r.lainaVuodet??10}" min="1" max="30"
+            onchange="updateRemontti(${r.id},'lainaVuodet',this.value)" />
+        </div>
+        <div class="remontti-laina-mo">→ ${fmt(Math.round(mo))} €/kk</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
   renderRemonttiTotal();
 }
 
@@ -531,15 +603,20 @@ function simulate(p, mode) {
 
     const rent12 = p.rent * 12;
     const maint12 = p.maintenance * 12;
-    const remoSum = (p.remontit || []).filter(r => r.vuosi === yr).reduce((s,r) => s + (r.summa || 0), 0);
-    const totalRepairs = p.repairs + remoSum;
+    const remoKerta = (p.remontit || [])
+      .filter(r => r.rahoitus === 'kertasuoritus' && r.vuosi === yr)
+      .reduce((s,r) => s + (r.summa || 0), 0);
+    const remoLainaMo = (p.remontit || [])
+      .filter(r => r.rahoitus !== 'kertasuoritus' && yr >= r.vuosi && yr < r.vuosi + (r.lainaVuodet || 1))
+      .reduce((s,r) => s + annuity(r.summa || 0, r.lainaKorko || 0, r.lainaVuodet || 1), 0);
+    const totalRepairs = p.repairs + remoKerta + remoLainaMo * 12;
     let tax = 0, admin = 0;
 
     if (mode === 'individual') {
       const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs);
       tax = ti <= 30000 ? ti * 0.30 : 30000*0.30 + (ti-30000)*0.34;
     } else {
-      admin = 1500;
+      admin = p.adminCost ?? 1500;
       const depr = p.price * 0.70 * 0.04;
       const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs - admin - depr);
       tax = ti * 0.20;
@@ -615,6 +692,7 @@ function calculate() {
     maintenance: val('maintenance') || sqm * 4,
     repairs: val('repairs') || 1000,
     appreciation: val('appreciation') || 1.0,
+    adminCost: val('adminCost'),
     assetType,
     address: get('address').value.trim(),
     hakuTyyppi: get('hakuTyyppi').value,
@@ -805,6 +883,7 @@ function loadKohde(id) {
   get('maintenance').value = p.maintenance || '';
   get('repairs').value = p.repairs || 1000;
   get('appreciation').value = p.appreciation || 1.0;
+  get('adminCost').value = p.adminCost ?? 1500;
 
   // Asuntotyyppi
   assetType = p.assetType || 'osake';
@@ -826,6 +905,7 @@ function loadKohde(id) {
     get('mPriceLabel').textContent = `Neliöhinta (${tm.label.toLowerCase()})`;
     get('mPrice').textContent = p.hinnat?.viimeisin_neliohinta ? fmt(p.hinnat.viimeisin_neliohinta) + ' €/m²' : 'Ei tietoa';
     get('mPriceQ').textContent = p.hinnat?.kvartaali || '';
+    showPriceTrend(p.hinnat?.historia);
     get('mRent').textContent = p.vuokrat?.vuokra_per_m2_kk ? p.vuokrat.vuokra_per_m2_kk.toFixed(1) : 'Ei tietoa';
     get('marketInfo').style.display = 'grid';
     msg('geoMsg', `${p.geo.katuosoite}, ${p.geo.kaupunki} (${p.geo.postinumero})`, 'success');
@@ -859,6 +939,7 @@ function clearForm() {
   get('rate').value = 3.5;
   get('repairs').value = 1000;
   get('appreciation').value = 1.0;
+  get('adminCost').value = 1500;
   get('loanBox').style.display = 'none';
   get('address').value = '';
   get('hakuTyyppi').value = '2';
