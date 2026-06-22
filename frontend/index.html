@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asuntosijoittajalaskuri</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; }
+.container { padding: 0.75rem 1rem; }
+
+header { background: linear-gradient(135deg, #1e3a5f, #2563eb); color: white; padding: 0.9rem 1.25rem; margin-bottom: 0.75rem; border-radius: 10px; display: flex; align-items: baseline; gap: 1.5rem; }
+header h1 { font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
+header p { opacity: 0.75; font-size: 0.8rem; }
+
+.card { background: white; border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 0.65rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+.card-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 1rem; }
+
+.address-row { display: flex; gap: 0.5rem; }
+.address-row input { flex: 1; }
+
+.market-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.65rem; }
+.market-badge { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 0.55rem 0.75rem; }
+.market-badge .mlabel { font-size: 0.64rem; color: #0369a1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.market-badge .mvalue { font-size: 1rem; font-weight: 700; color: #0c4a6e; margin-top: 0.15rem; }
+.market-badge .msub { font-size: 0.64rem; color: #0369a1; margin-top: 0.1rem; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.field { margin-bottom: 0.55rem; }
+.field label { display: block; font-size: 0.75rem; font-weight: 500; color: #475569; margin-bottom: 0.2rem; }
+.field input { width: 100%; padding: 0.4rem 0.65rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; }
+.field input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
+.field .hint { font-size: 0.67rem; color: #94a3b8; margin-top: 0.15rem; }
+
+.derived-box { padding: 0.35rem 0.65rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; font-size: 0.82rem; color: #0369a1; font-weight: 500; margin-bottom: 0.55rem; }
+
+.toggle { display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; }
+.toggle button { flex: 1; padding: 0.4rem; border: none; background: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: #64748b; transition: all 0.15s; }
+.toggle button.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+.btn-primary { width: 100%; padding: 0.6rem; background: #2563eb; color: white; border: none; border-radius: 7px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 0.4rem; transition: background 0.15s; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-sm { padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn-sm:hover { background: #1d4ed8; }
+
+.msg { padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-top: 0.75rem; }
+.msg.loading { background: #eff6ff; color: #2563eb; }
+.msg.error { background: #fef2f2; color: #dc2626; }
+.msg.success { background: #f0fdf4; color: #16a34a; }
+
+.htabs { display: flex; gap: 0.5rem; }
+.htab { padding: 0.4rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 6px; background: white; cursor: pointer; font-weight: 500; font-size: 0.85rem; color: #64748b; }
+.htab.active { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+
+.kpi-section-label { font-size: 0.75rem; font-weight: 600; color: #334155; margin: 0.75rem 0 0.4rem; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.4rem; }
+.kpi { background: #f8fafc; border-radius: 8px; padding: 0.65rem 0.5rem; text-align: center; }
+.kpi .klabel { font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi .kvalue { font-size: 1.15rem; font-weight: 700; margin: 0.15rem 0; }
+.kpi .ksub { font-size: 0.6rem; color: #94a3b8; }
+.kpi.pos .kvalue { color: #16a34a; }
+.kpi.neg .kvalue { color: #dc2626; }
+.kpi.blue .kvalue { color: #2563eb; }
+.kpi.dark .kvalue { color: #1e293b; }
+
+.comp-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.comp-table th { text-align: left; padding: 0.5rem 0.75rem; background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comp-table th:not(:first-child) { text-align: right; }
+.comp-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; }
+.comp-table td:not(:first-child) { text-align: right; }
+.comp-table tr:last-child td { border-bottom: none; }
+.better { color: #16a34a; font-weight: 600; }
+.worse { color: #dc2626; }
+
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 0.65rem; }
+.chart-wrap { position: relative; height: 190px; }
+
+.ytable-wrap { overflow-x: auto; }
+.ytable { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.ytable th { padding: 0.4rem 0.5rem; background: #f8fafc; color: #475569; font-weight: 600; text-align: right; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.ytable th:first-child { text-align: left; }
+.ytable td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f8fafc; text-align: right; }
+.ytable td:first-child { text-align: left; font-weight: 500; }
+.ytable tr:nth-child(5n) td { background: #fafafa; }
+.ytable .pos { color: #16a34a; }
+.ytable .neg { color: #dc2626; }
+
+#results { display: none; }
+
+/* Two-column layout */
+.app-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 0.65rem; align-items: start; }
+.sidebar { position: sticky; top: 0.75rem; }
+
+/* Sidebar items */
+.sidebar-empty { font-size: 0.8rem; color: #94a3b8; padding: 0.5rem 0 0.25rem; }
+.sidebar-item { padding: 0.55rem 0.75rem; border-radius: 8px; cursor: pointer; border-left: 3px solid transparent; margin-bottom: 0.2rem; transition: all 0.12s; }
+.sidebar-item:hover { background: #f8fafc; border-left-color: #bfdbfe; }
+.sidebar-item.active { background: #eff6ff; border-left-color: #2563eb; }
+.si-name { font-size: 0.83rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-meta { font-size: 0.68rem; color: #94a3b8; margin-top: 0.1rem; }
+.si-cf { font-weight: 700; }
+.si-cf.pos { color: #16a34a; }
+.si-cf.neg { color: #dc2626; }
+.btn-ghost { background: none; border: none; color: #94a3b8; font-size: 0.75rem; cursor: pointer; padding: 0.6rem 0 0; width: 100%; text-align: center; border-top: 1px solid #f1f5f9; margin-top: 0.5rem; }
+.btn-ghost:hover { color: #64748b; }
+
+/* Remonttirivit */
+.remontti-row { display: grid; grid-template-columns: 1fr 60px 90px 110px 28px; gap: 0.4rem; align-items: center; margin-bottom: 0.35rem; }
+.remontti-row input, .remontti-row select { padding: 0.35rem 0.5rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.83rem; width: 100%; }
+.remontti-row input:focus, .remontti-row select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
+.remontti-header { display: grid; grid-template-columns: 1fr 60px 90px 110px 28px; gap: 0.4rem; margin-bottom: 0.3rem; }
+.remontti-header span { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+.btn-del { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; }
+.btn-del:hover { color: #dc2626; }
+.remontti-total { font-size: 0.78rem; color: #64748b; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9; }
+
+/* Modernised search input */
+.search-wrap { position: relative; }
+.search-wrap svg { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+.search-wrap input { width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.5rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.95rem; }
+.search-wrap input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
+
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Asuntosijoittajalaskuri</h1>
+    <p>Arvioi sijoitusasunnon kannattavuus yksityishenkilönä tai osakeyhtiön kautta — 5, 10 ja 15 vuoden horisontilla &nbsp;·&nbsp; <span style="opacity:0.6;font-size:0.75rem">Desimaalierotin: piste (3.5)</span></p>
+  </header>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="card" style="padding:1.25rem">
+        <div class="card-title" style="margin-bottom:0.75rem">Tallennetut kohteet <span id="kohdeCount" style="font-weight:400;font-size:0.8rem;text-transform:none;letter-spacing:0;color:#94a3b8"></span></div>
+        <div id="sidebarList"><p class="sidebar-empty">Ei kohteita.</p></div>
+        <button class="btn-ghost" id="clearBtn" style="display:none" onclick="clearForm()">+ Uusi kohde</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+
+  <div class="card">
+    <div class="card-title">1. Kohteen haku</div>
+    <div class="field" style="margin-bottom:0.5rem">
+      <label>Osoite</label>
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="address" placeholder="esim. Mannerheimintie 1, Helsinki" />
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center">
+        <select id="hakuTyyppi" style="padding:0.45rem 0.6rem;border:1.5px solid #e2e8f0;border-radius:6px;font-size:0.88rem;background:#fff;color:#1e293b;cursor:pointer">
+          <option value="1">Yksiö (1h)</option>
+          <option value="2" selected>Kaksio (2h)</option>
+          <option value="3">Kolmio+ (3h+)</option>
+          <option value="4">Rivitalo</option>
+        </select>
+        <button class="btn-primary" onclick="fetchMarket()">Hae markkinatiedot</button>
+      </div>
+    </div>
+    <div id="geoMsg"></div>
+    <div id="marketInfo" class="market-info" style="display:none">
+      <div class="market-badge">
+        <div class="mlabel">Alue</div>
+        <div class="mvalue" id="mArea">—</div>
+        <div class="msub" id="mPostal">—</div>
+      </div>
+      <div class="market-badge">
+        <div class="mlabel" id="mPriceLabel">Neliöhinta</div>
+        <div class="mvalue" id="mPrice">—</div>
+        <div class="msub" id="mPriceQ">—</div>
+      </div>
+      <div class="market-badge">
+        <div class="mlabel">Vuokra / m² / kk</div>
+        <div class="mvalue" id="mRent">—</div>
+        <div class="msub">vapaarahoitteinen</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">2. Laskentatiedot</div>
+    <div class="grid-2">
+      <div>
+        <div class="field">
+          <label>Velaton hinta (€)</label>
+          <input type="number" id="price" placeholder="esim. 200000" oninput="onPriceChange()" />
+          <div class="hint">Asunnon velaton kauppahinta euroina</div>
+        </div>
+        <div class="field">
+          <label>Neliöt (m²)</label>
+          <input type="number" id="sqm" placeholder="esim. 45" oninput="onSqmChange()" />
+          <div class="hint">Asunnon asuinpinta-ala neliömetreinä</div>
+        </div>
+        <div class="field">
+          <label>Oma pääoma (€)</label>
+          <input type="number" id="equity" placeholder="esim. 40000" oninput="onPriceChange()" />
+          <div class="hint">Käsirahasi — varainsiirtovero (2–4 %) maksetaan tästä summasta</div>
+        </div>
+        <div id="loanBox" class="derived-box" style="display:none">Laina: —</div>
+        <div class="field">
+          <label>Laina-aika (v)</label>
+          <input type="number" id="loanYears" value="25" min="1" max="30" />
+          <div class="hint">Tyypillisesti 20–25 vuotta</div>
+        </div>
+        <div class="field">
+          <label>Korko (%/v)</label>
+          <input type="number" id="rate" value="3.5" step="0.1" min="0" />
+          <div class="hint">Euribor + marginaali, esim. 3,5 %</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>Vuokra/kk (€)</label>
+          <input type="number" id="rent" placeholder="esim. 900" />
+          <div class="hint">Arvioitu kuukausivuokra — esitäytetään automaattisesti jos haet markkinatiedot ensin</div>
+        </div>
+        <div class="field">
+          <label>Hoitovastike (€/kk)</label>
+          <input type="number" id="maintenance" placeholder="esim. 180" />
+          <div class="hint">Taloyhtiön kuukausivastike — esitäytetään neliöiden perusteella (4 €/m²)</div>
+        </div>
+        <div class="field">
+          <label>Remonttivara (€/v)</label>
+          <input type="number" id="repairs" value="1000" />
+          <div class="hint">Vuosittainen varaus korjauksiin, esim. 1000–3000 €</div>
+        </div>
+        <div class="field">
+          <label>Arvonnousu-oletus (%/v)</label>
+          <input type="number" id="appreciation" value="1.0" step="0.5" />
+          <div class="hint">Asunnon vuosittainen arvonnousu, esim. 1–2 % kasvukeskuksissa</div>
+        </div>
+        <div class="field">
+          <label>Asuntotyyppi</label>
+          <div class="toggle" id="assetToggle">
+            <button class="active" onclick="setAsset('osake',this)">Asunto-osake (2 %)</button>
+            <button onclick="setAsset('kiinteisto',this)">Kiinteistö (4 %)</button>
+          </div>
+          <div class="hint" id="taxHint">Varainsiirtovero: 2 %</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="remonttiCard">
+      <div class="card-title">3. Remontit</div>
+      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.85rem">Tiedossa olevat taloyhtiön remontit ja omat suunnitellut remontit. Lisätään kertaluonteisina kuluina laskettavalle vuodelle.</p>
+      <div class="remontti-header">
+        <span>Kuvaus</span><span>Vuosi</span><span>Summa (€)</span><span>Tyyppi</span><span></span>
+      </div>
+      <div id="remonttilista"></div>
+      <div class="remontti-total" id="remonttitotal" style="display:none"></div>
+      <button class="btn-ghost" style="margin-top:0.5rem;font-size:0.83rem" onclick="addRemontti()">+ Lisää remontti</button>
+    </div>
+
+    <button class="btn-primary" onclick="calculate()">Laske sijoituksen tuotto</button>
+  </div>
+
+  <!-- Vertailutaulukko – aina näkyvissä -->
+  <div class="card" id="savedSection">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem">
+      <div class="card-title" style="margin-bottom:0">Tallennetut kohteet</div>
+      <div class="htabs" id="compHtabs">
+        <button class="htab active" onclick="setCompH(5,this)">5 vuotta</button>
+        <button class="htab" onclick="setCompH(10,this)">10 vuotta</button>
+        <button class="htab" onclick="setCompH(15,this)">15 vuotta</button>
+      </div>
+    </div>
+    <div id="savedWrap"><p style="color:#94a3b8;font-size:0.875rem">Ei tallennettuja kohteita.</p></div>
+  </div>
+
+  <div id="results">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+        <div class="card-title" style="margin-bottom:0">Tulokset</div>
+        <div class="htabs">
+          <button class="htab active" onclick="showH(5,this)">5 vuotta</button>
+          <button class="htab" onclick="showH(10,this)">10 vuotta</button>
+          <button class="htab" onclick="showH(15,this)">15 vuotta</button>
+        </div>
+      </div>
+      <div id="invested" style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem;"></div>
+      <div id="kpiInd"></div>
+      <div id="kpiComp"></div>
+      <div style="margin-top:1.25rem;margin-bottom:0.75rem;" class="card-title">Vertailu yksityinen vs. osakeyhtiö</div>
+      <div style="overflow-x:auto">
+        <table class="comp-table">
+          <thead><tr><th>Mittari</th><th>Yksityishenkilö</th><th>Osakeyhtiö</th></tr></thead>
+          <tbody id="compBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div class="card">
+        <div class="card-title">Kassavirta/kk vuosittain</div>
+        <div class="chart-wrap"><canvas id="cfChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Varallisuuden kehitys</div>
+        <div class="chart-wrap"><canvas id="wChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Tallennuskortti -->
+    <div class="card" id="saveCard" style="display:none">
+      <div class="card-title">Tallenna kohde</div>
+      <div id="updateBanner" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:0.5rem 0.75rem;margin-bottom:0.65rem;font-size:0.82rem;color:#1d4ed8">
+        Päivitetään tallennettua kohdetta: <strong id="updateName"></strong>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:flex-start">
+        <div style="flex:1">
+          <input type="text" id="kohdeNimi" placeholder="Kohteen nimi, esim. Kallio 2h 45m²"
+            style="width:100%;padding:0.4rem 0.65rem;border:1.5px solid #e2e8f0;border-radius:6px;font-size:0.9rem" />
+          <div class="hint" style="margin-top:0.15rem">Anna lyhyt tunnistusnimi</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          <button class="btn-sm" id="updateBtn" style="display:none;background:#16a34a" onclick="updateKohde()">Päivitä</button>
+          <button class="btn-sm" onclick="saveKohde()">Tallenna uutena</button>
+        </div>
+      </div>
+      <div id="saveMsg"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Vuosikohtainen erittely — yksityishenkilö</div>
+      <div class="ytable-wrap">
+        <table class="ytable">
+          <thead>
+            <tr>
+              <th>Vuosi</th><th>Vuokratulo</th><th>Korko</th><th>Lyhennys</th>
+              <th>Vastike</th><th>Remontit</th><th>Verot</th>
+              <th>Kassavirta/kk</th><th>Kiint.arvo</th><th>Lainasaldo</th><th>Oma pääoma</th>
+            </tr>
+          </thead>
+          <tbody id="ytBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+    </div><!-- /.main-content -->
+  </div><!-- /.app-layout -->
+</div><!-- /.container -->
+
+<script>
+let mkt = {};
+let res = null;
+let horizon = 5;
+let assetType = 'osake';
+let cfChartInst = null, wChartInst = null;
+let activeKohdeId = null;
+let remontit = [];
+let _rId = 0;
+
+const fmt = n => Math.round(n).toLocaleString('fi-FI');
+const fmtS = n => (n >= 0 ? '+' : '') + fmt(n);
+const pct = n => parseFloat(n).toFixed(1) + ' %';
+const get = id => document.getElementById(id);
+const val = id => parseFloat(get(id).value.replace(/\s/g, '').replace(',', '.')) || 0;
+
+function msg(id, text, type) {
+  get(id).innerHTML = text ? `<div class="msg ${type}">${text}</div>` : '';
+}
+
+function setAsset(type, btn) {
+  assetType = type;
+  get('assetToggle').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  get('taxHint').textContent = 'Varainsiirtovero: ' + (type === 'kiinteisto' ? '4 %' : '2 %');
+}
+
+function onPriceChange() {
+  const price = val('price'), equity = val('equity');
+  if (price > 0 && equity > 0) {
+    const loan = Math.max(0, price - equity);
+    get('loanBox').style.display = 'block';
+    get('loanBox').textContent = `Laina: ${fmt(loan)} € (${Math.round(loan/price*100)} % hinnasta)`;
+  } else {
+    get('loanBox').style.display = 'none';
+  }
+}
+
+function onSqmChange() {
+  const sqm = val('sqm');
+  if (sqm > 0 && !get('maintenance').value) {
+    get('maintenance').value = Math.round(sqm * 4);
+  }
+  if (sqm > 0 && mkt.vuokrat?.vuokra_per_m2_kk && !get('rent').value) {
+    get('rent').value = Math.round(sqm * mkt.vuokrat.vuokra_per_m2_kk);
+  }
+}
+
+const _TYYPPI_MAP = {
+  '1': { talotyyppi: '1', huoneluku: '1', label: 'Yksiöt' },
+  '2': { talotyyppi: '2', huoneluku: '2', label: 'Kaksiot' },
+  '3': { talotyyppi: '3', huoneluku: '3', label: 'Kolmiot+' },
+  '4': { talotyyppi: '4', huoneluku: '3', label: 'Rivitalot' },
+};
+
+async function fetchMarket() {
+  const addr = get('address').value.trim();
+  if (!addr) return;
+  const tyyppiKey = get('hakuTyyppi').value;
+  const tm = _TYYPPI_MAP[tyyppiKey] || _TYYPPI_MAP['2'];
+  msg('geoMsg', 'Haetaan sijaintitietoja…', 'loading');
+  get('marketInfo').style.display = 'none';
+
+  try {
+    const geoR = await fetch('/api/geocode?address=' + encodeURIComponent(addr));
+    if (!geoR.ok) { const e = await geoR.json(); msg('geoMsg', 'Virhe: ' + (e.detail || 'osoitetta ei löydy'), 'error'); return; }
+    const geo = await geoR.json();
+    mkt.geo = geo;
+
+    msg('geoMsg', `Haetaan hintatietoja (${geo.postinumero})…`, 'loading');
+
+    const [hr, vr] = await Promise.allSettled([
+      fetch(`/api/hinnat?postinumero=${geo.postinumero}&talotyyppi=${tm.talotyyppi}`),
+      fetch(`/api/vuokrat?kaupunki=${encodeURIComponent(geo.kaupunki)}&huoneluku=${tm.huoneluku}`)
+    ]);
+
+    mkt.hinnat = null; mkt.vuokrat = null;
+    if (hr.status === 'fulfilled' && hr.value.ok) mkt.hinnat = await hr.value.json();
+    if (vr.status === 'fulfilled' && vr.value.ok) mkt.vuokrat = await vr.value.json();
+
+    get('mArea').textContent = geo.kaupunki || geo.katuosoite || geo.postinumero;
+    get('mPostal').textContent = geo.postinumero;
+    get('mPriceLabel').textContent = `Neliöhinta (${tm.label.toLowerCase()})`;
+    get('mPrice').textContent = mkt.hinnat?.viimeisin_neliohinta ? fmt(mkt.hinnat.viimeisin_neliohinta) + ' €/m²' : 'Ei tietoa';
+    get('mPriceQ').textContent = mkt.hinnat?.kvartaali || '';
+    get('mRent').textContent = mkt.vuokrat?.vuokra_per_m2_kk ? mkt.vuokrat.vuokra_per_m2_kk.toFixed(1) : 'Ei tietoa';
+    get('marketInfo').style.display = 'grid';
+
+    const sqm = val('sqm');
+    if (sqm > 0 && mkt.vuokrat?.vuokra_per_m2_kk && !get('rent').value) {
+      get('rent').value = Math.round(sqm * mkt.vuokrat.vuokra_per_m2_kk);
+    }
+
+    const parts = [];
+    if (!mkt.hinnat) parts.push('hintatietoja');
+    if (!mkt.vuokrat) parts.push('vuokratietoja');
+    if (parts.length) {
+      msg('geoMsg', `${geo.katuosoite}, ${geo.kaupunki} — ${parts.join(' ja ')} ei löydy tälle postinumerolle`, 'success');
+    } else {
+      msg('geoMsg', `${geo.katuosoite}, ${geo.kaupunki} (${geo.postinumero})`, 'success');
+    }
+  } catch(e) {
+    msg('geoMsg', 'Virhe: ' + e.message, 'error');
+  }
+}
+
+get('address').addEventListener('keypress', e => { if (e.key === 'Enter') fetchMarket(); });
+
+// ── Remontit ──────────────────────────────────────────────────────────────────
+
+function addRemontti(preset) {
+  const id = ++_rId;
+  remontit.push(preset ? { ...preset, id } : { id, nimi: '', vuosi: 5, summa: 0, tyyppi: 'taloyhtiö' });
+  renderRemontit();
+}
+
+function removeRemontti(id) {
+  remontit = remontit.filter(r => r.id !== id);
+  renderRemontit();
+}
+
+function updateRemontti(id, field, value) {
+  const r = remontit.find(r => r.id === id);
+  if (!r) return;
+  r[field] = (field === 'vuosi' || field === 'summa') ? (parseFloat(value) || 0) : value;
+  renderRemonttiTotal();
+}
+
+function renderRemonttiTotal() {
+  const el = get('remonttitotal');
+  if (!remontit.length) { el.style.display = 'none'; return; }
+  const sum = remontit.reduce((s, r) => s + (r.summa || 0), 0);
+  el.style.display = 'block';
+  el.textContent = `${remontit.length} remonttia · ${fmt(sum)} € yhteensä`;
+}
+
+function renderRemontit() {
+  const list = get('remonttilista');
+  if (!remontit.length) { list.innerHTML = ''; get('remonttitotal').style.display = 'none'; return; }
+  list.innerHTML = remontit.map(r => `
+    <div class="remontti-row">
+      <input type="text" value="${r.nimi.replace(/"/g,'&quot;')}" placeholder="esim. Putkiremontti"
+        onchange="updateRemontti(${r.id},'nimi',this.value)" />
+      <input type="number" value="${r.vuosi || ''}" min="1" max="15" placeholder="1–15"
+        onchange="updateRemontti(${r.id},'vuosi',this.value)" />
+      <input type="number" value="${r.summa || ''}" placeholder="esim. 5000"
+        onchange="updateRemontti(${r.id},'summa',this.value)" />
+      <select onchange="updateRemontti(${r.id},'tyyppi',this.value)">
+        <option value="taloyhtiö"${r.tyyppi==='taloyhtiö'?' selected':''}>Taloyhtiö</option>
+        <option value="oma"${r.tyyppi==='oma'?' selected':''}>Oma</option>
+      </select>
+      <button class="btn-del" onclick="removeRemontti(${r.id})" title="Poista">✕</button>
+    </div>`).join('');
+  renderRemonttiTotal();
+}
+
+// ── Laskentamoottori ──────────────────────────────────────────────────────────
+
+function annuity(loan, annualRate, years) {
+  if (loan <= 0) return 0;
+  if (annualRate <= 0) return loan / (years * 12);
+  const r = annualRate / 100 / 12, n = years * 12;
+  return loan * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1);
+}
+
+function simulate(p, mode) {
+  const loan = Math.max(0, p.price - p.equity);
+  const transferTax = p.price * (p.assetType === 'kiinteisto' ? 0.04 : 0.02);
+  const totalInvested = p.equity + transferTax;
+  const mp = annuity(loan, p.rate, p.loanYears);
+
+  let balance = loan, propVal = p.price, cumCF = 0;
+  const yearly = [];
+
+  for (let yr = 1; yr <= 15; yr++) {
+    let yInt = 0, yPrinc = 0;
+    for (let m = 0; m < 12; m++) {
+      if (balance <= 0) break;
+      const mi = balance * p.rate / 100 / 12;
+      const mpr = Math.min(mp - mi, balance);
+      yInt += mi; yPrinc += Math.max(0, mpr);
+      balance = Math.max(0, balance - mpr);
+    }
+    propVal *= (1 + p.appreciation / 100);
+
+    const rent12 = p.rent * 12;
+    const maint12 = p.maintenance * 12;
+    const remoSum = (p.remontit || []).filter(r => r.vuosi === yr).reduce((s,r) => s + (r.summa || 0), 0);
+    const totalRepairs = p.repairs + remoSum;
+    let tax = 0, admin = 0;
+
+    if (mode === 'individual') {
+      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs);
+      tax = ti <= 30000 ? ti * 0.30 : 30000*0.30 + (ti-30000)*0.34;
+    } else {
+      admin = 1500;
+      const depr = p.price * 0.70 * 0.04;
+      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs - admin - depr);
+      tax = ti * 0.20;
+    }
+
+    const cf = rent12 - mp*12 - maint12 - totalRepairs - tax - admin;
+    cumCF += cf;
+
+    yearly.push({
+      year: yr,
+      rent12: Math.round(rent12), interest: Math.round(yInt), principal: Math.round(yPrinc),
+      maint: Math.round(maint12), repairs: Math.round(totalRepairs), tax: Math.round(tax),
+      cf: Math.round(cf), cfMo: Math.round(cf/12),
+      balance: Math.round(balance), propVal: Math.round(propVal),
+      equity: Math.round(propVal - balance), cumCF: Math.round(cumCF)
+    });
+  }
+
+  const horizons = {};
+  for (const h of [5, 10, 15]) {
+    const y = yearly[h-1];
+    const gain = y.propVal - p.price;
+    let saleNet;
+    if (mode === 'individual') {
+      const acq = h >= 10 ? 0.40 : 0.20;
+      // Verovelvollinen valitsee edullisemman: todellinen voitto vs. hankintameno-olettama
+      const taxableActual = Math.max(0, gain);
+      const taxableHMO    = y.propVal * (1 - acq);
+      const gainTax       = Math.min(taxableActual, taxableHMO) * 0.30;
+      saleNet = gain - gainTax;
+    } else {
+      const ct = Math.max(0, gain * 0.20);
+      const after = gain - ct;
+      saleNet = after - (after > 0 ? after * 0.12 : 0);
+    }
+    const totalRet = y.cumCF + saleNet;
+    const fv = totalInvested + totalRet;
+    const cagr = totalInvested > 0 && fv > 0 ? (Math.pow(fv/totalInvested, 1/h)-1)*100 : totalRet/totalInvested/h*100;
+
+    horizons[h] = {
+      cfMo: y.cfMo, cumCF: y.cumCF,
+      propVal: y.propVal, balance: y.balance, equity: y.equity,
+      saleNet: Math.round(saleNet), totalRet: Math.round(totalRet),
+      cagr: cagr.toFixed(1), totalInvested: Math.round(totalInvested),
+      transferTax: Math.round(transferTax)
+    };
+  }
+
+  return { yearly, horizons };
+}
+
+function calculate() {
+  const price = val('price'), sqm = val('sqm'), equity = val('equity'), rent = val('rent');
+  const missing = [];
+  if (!price) missing.push('velaton hinta');
+  if (!sqm) missing.push('neliöt');
+  if (!equity) missing.push('oma pääoma');
+  if (!rent) missing.push('vuokra/kk');
+  if (missing.length) {
+    ['price','sqm','equity','rent'].forEach(id => {
+      get(id).style.borderColor = !val(id) ? '#dc2626' : '';
+    });
+    document.querySelector('.btn-primary').insertAdjacentHTML('afterend',
+      `<div class="msg error" style="margin-top:0.5rem">Puuttuu: ${missing.join(', ')}</div>`);
+    return;
+  }
+  document.querySelectorAll('.msg.error').forEach(el => el.remove());
+  ['price','sqm','equity','rent'].forEach(id => get(id).style.borderColor = '');
+  const p = {
+    price, sqm, equity, rent,
+    loanYears: val('loanYears') || 25,
+    rate: val('rate') || 3.5,
+    maintenance: val('maintenance') || sqm * 4,
+    repairs: val('repairs') || 1000,
+    appreciation: val('appreciation') || 1.0,
+    assetType,
+    address: get('address').value.trim(),
+    hakuTyyppi: get('hakuTyyppi').value,
+    geo: mkt.geo || null,
+    hinnat: mkt.hinnat || null,
+    vuokrat: mkt.vuokrat || null,
+    remontit: remontit.map(r => ({ ...r })),
+  };
+  res = { ind: simulate(p, 'individual'), comp: simulate(p, 'company'), p };
+  get('results').style.display = 'block';
+  get('saveCard').style.display = 'block';
+
+  // Jos kohde on ladattu sivupalkista, tarjoa päivitystä
+  if (activeKohdeId) {
+    const ak = savedKohteet.find(x => x.id === activeKohdeId);
+    get('updateBanner').style.display = 'block';
+    get('updateName').textContent = ak?.nimi ?? '';
+    get('kohdeNimi').value = ak?.nimi ?? '';
+    get('updateBtn').style.display = 'block';
+  } else {
+    get('updateBanner').style.display = 'none';
+    get('updateBtn').style.display = 'none';
+  }
+
+  setTimeout(() => get('results').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  showH(horizon);
+}
+
+// ── Renderöinti ───────────────────────────────────────────────────────────────
+
+function showH(h, btn) {
+  horizon = h;
+  get('results').querySelectorAll('.htab').forEach((t,i) => t.classList.toggle('active', [5,10,15][i]===h));
+  if (!res) return;
+  renderKPIs(h); renderComp(h); renderCharts(h); renderYearTable(h);
+}
+
+function kpiCard(label, value, sub, cls) {
+  return `<div class="kpi ${cls}"><div class="klabel">${label}</div><div class="kvalue">${value}</div><div class="ksub">${sub}</div></div>`;
+}
+
+function renderKPIs(h) {
+  const i = res.ind.horizons[h], c = res.comp.horizons[h];
+  get('invested').textContent = `Sijoitettu pääoma: ${fmt(i.totalInvested)} € (ml. varainsiirtovero ${fmt(i.transferTax)} €, laina ${fmt(Math.max(0, res.p.price - res.p.equity))} €)`;
+
+  const renderSet = (d, id) => {
+    get(id).innerHTML = `
+      <div class="kpi-section-label">${id==='kpiInd'?'Yksityishenkilö':'Osakeyhtiö'}</div>
+      <div class="kpi-grid">
+        ${kpiCard('Kassavirta/kk', fmtS(d.cfMo)+' €', 'verojen jälkeen', d.cfMo>=0?'pos':'neg')}
+        ${kpiCard('Oma pääoma '+h+'v', fmt(d.equity)+' €', 'arvo − lainasaldo', 'dark')}
+        ${kpiCard('Myyntivoitto', fmtS(d.saleNet)+' €', 'verojen jälkeen', d.saleNet>=0?'pos':'neg')}
+        ${kpiCard('Vuosituotto', pct(d.cagr), 'p.a. kokonaistuotto', 'blue')}
+      </div>`;
+  };
+  renderSet(i, 'kpiInd');
+  renderSet(c, 'kpiComp');
+}
+
+function renderComp(h) {
+  const i = res.ind.horizons[h], c = res.comp.horizons[h];
+  const rows = [
+    ['Kassavirta/kk', i.cfMo, c.cfMo, true, v => fmtS(v)+' €'],
+    ['Kumulat. kassavirta', i.cumCF, c.cumCF, true, v => fmtS(v)+' €'],
+    ['Myyntivoitto (netto)', i.saleNet, c.saleNet, true, v => fmtS(v)+' €'],
+    ['Kokonaistuotto', i.totalRet, c.totalRet, true, v => fmtS(v)+' €'],
+    ['Vuosituotto (p.a.)', parseFloat(i.cagr), parseFloat(c.cagr), true, v => pct(v)],
+    ['Kiinteistön arvo', i.propVal, c.propVal, false, v => fmt(v)+' €'],
+    ['Oma pääoma', i.equity, c.equity, false, v => fmt(v)+' €'],
+  ];
+  get('compBody').innerHTML = rows.map(([lbl, iv, cv, cmp, f]) => {
+    const ic = cmp ? (iv > cv ? 'better' : iv < cv ? 'worse' : '') : '';
+    const cc = cmp ? (cv > iv ? 'better' : cv < iv ? 'worse' : '') : '';
+    return `<tr><td>${lbl}</td><td class="${ic}">${f(iv)}</td><td class="${cc}">${f(cv)}</td></tr>`;
+  }).join('');
+}
+
+function renderCharts(h) {
+  const indY = res.ind.yearly.slice(0,h);
+  const compY = res.comp.yearly.slice(0,h);
+  const labels = indY.map(y => 'V'+y.year);
+
+  if (cfChartInst) cfChartInst.destroy();
+  if (wChartInst) wChartInst.destroy();
+
+  cfChartInst = new Chart(get('cfChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Yksityinen (€/kk)', data: indY.map(y=>y.cfMo), backgroundColor: '#bfdbfe', borderColor: '#2563eb', borderWidth: 1 },
+        { label: 'Osakeyhtiö (€/kk)', data: compY.map(y=>y.cfMo), backgroundColor: '#bbf7d0', borderColor: '#16a34a', borderWidth: 1 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ y:{ticks:{font:{size:10}}}, x:{ticks:{font:{size:10}}} }
+    }
+  });
+
+  wChartInst = new Chart(get('wChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Kiint. arvo', data: indY.map(y=>y.propVal), borderColor:'#7c3aed', backgroundColor:'transparent', tension:0.3, pointRadius:3 },
+        { label: 'Pääoma (yksit.)', data: indY.map(y=>y.equity), borderColor:'#2563eb', backgroundColor:'#eff6ff60', fill:true, tension:0.3, pointRadius:3 },
+        { label: 'Pääoma (Oy)', data: compY.map(y=>y.equity), borderColor:'#16a34a', borderDash:[4,3], backgroundColor:'transparent', tension:0.3, pointRadius:3 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{
+        y:{ ticks:{ font:{size:10}, callback: v => (v>=1000?Math.round(v/1000)+'k':v)+' €' } },
+        x:{ ticks:{font:{size:10}} }
+      }
+    }
+  });
+}
+
+function renderYearTable(h) {
+  get('ytBody').innerHTML = res.ind.yearly.slice(0,h).map(y => `
+    <tr>
+      <td>${y.year}</td>
+      <td>${fmt(y.rent12)} €</td>
+      <td>${fmt(y.interest)} €</td>
+      <td>${fmt(y.principal)} €</td>
+      <td>${fmt(y.maint)} €</td>
+      <td>${fmt(y.repairs)} €</td>
+      <td>${fmt(y.tax)} €</td>
+      <td class="${y.cfMo>=0?'pos':'neg'}">${fmtS(y.cfMo)} €</td>
+      <td>${fmt(y.propVal)} €</td>
+      <td>${fmt(y.balance)} €</td>
+      <td>${fmt(y.equity)} €</td>
+    </tr>`).join('');
+}
+
+// ── Tallennus & vertailu ──────────────────────────────────────────────────────
+
+let savedKohteet = [];
+let compH = 5;
+
+async function loadKohteet() {
+  try {
+    const r = await fetch('/api/kohteet');
+    savedKohteet = await r.json();
+  } catch { savedKohteet = []; }
+  renderSidebar();
+  renderSaved();
+}
+
+function renderSidebar() {
+  const list = get('sidebarList');
+  const count = get('kohdeCount');
+  const clearBtn = get('clearBtn');
+
+  count.textContent = savedKohteet.length ? `(${savedKohteet.length})` : '';
+  clearBtn.style.display = activeKohdeId ? 'block' : 'none';
+
+  if (!savedKohteet.length) {
+    list.innerHTML = '<p class="sidebar-empty">Ei kohteita.</p>';
+    return;
+  }
+
+  list.innerHTML = savedKohteet.map(k => {
+    const cf = k.tulokset?.ind?.horizons?.[5]?.cfMo ?? k.tulokset?.ind?.horizons?.['5']?.cfMo;
+    const cfText = cf != null ? `<span class="si-cf ${cf>=0?'pos':'neg'}">${fmtS(cf)} €/kk</span>` : '';
+    return `<div class="sidebar-item${activeKohdeId===k.id?' active':''}" onclick="loadKohde(${k.id})">
+      <div class="si-name">${k.nimi}</div>
+      <div class="si-meta">${k.luotu.slice(0,10)} ${cfText}</div>
+    </div>`;
+  }).join('');
+}
+
+function loadKohde(id) {
+  const k = savedKohteet.find(x => x.id === id);
+  if (!k) return;
+  activeKohdeId = id;
+
+  // Täytä lomakekentät
+  const p = k.params;
+  get('price').value = p.price || '';
+  get('sqm').value = p.sqm || '';
+  get('equity').value = p.equity || '';
+  get('rent').value = p.rent || '';
+  get('loanYears').value = p.loanYears || 25;
+  get('rate').value = p.rate || 3.5;
+  get('maintenance').value = p.maintenance || '';
+  get('repairs').value = p.repairs || 1000;
+  get('appreciation').value = p.appreciation || 1.0;
+
+  // Asuntotyyppi
+  assetType = p.assetType || 'osake';
+  get('assetToggle').querySelectorAll('button').forEach((b, i) => {
+    b.classList.toggle('active', i === (assetType === 'osake' ? 0 : 1));
+  });
+  get('taxHint').textContent = 'Varainsiirtovero: ' + (assetType === 'kiinteisto' ? '4 %' : '2 %');
+
+  // Osoite + hakuluokka
+  get('address').value = p.address || '';
+  if (p.hakuTyyppi) get('hakuTyyppi').value = p.hakuTyyppi;
+
+  // Markkinatiedot
+  if (p.geo) {
+    mkt = { geo: p.geo, hinnat: p.hinnat || null, vuokrat: p.vuokrat || null };
+    const tm = _TYYPPI_MAP[p.hakuTyyppi] || _TYYPPI_MAP['2'];
+    get('mArea').textContent = p.geo.kaupunki || p.geo.katuosoite || p.geo.postinumero;
+    get('mPostal').textContent = p.geo.postinumero;
+    get('mPriceLabel').textContent = `Neliöhinta (${tm.label.toLowerCase()})`;
+    get('mPrice').textContent = p.hinnat?.viimeisin_neliohinta ? fmt(p.hinnat.viimeisin_neliohinta) + ' €/m²' : 'Ei tietoa';
+    get('mPriceQ').textContent = p.hinnat?.kvartaali || '';
+    get('mRent').textContent = p.vuokrat?.vuokra_per_m2_kk ? p.vuokrat.vuokra_per_m2_kk.toFixed(1) : 'Ei tietoa';
+    get('marketInfo').style.display = 'grid';
+    msg('geoMsg', `${p.geo.katuosoite}, ${p.geo.kaupunki} (${p.geo.postinumero})`, 'success');
+  } else {
+    mkt = {};
+    get('marketInfo').style.display = 'none';
+    get('geoMsg').innerHTML = '';
+  }
+
+  // Remontit
+  remontit = (p.remontit || []).map(r => ({ ...r }));
+  _rId = remontit.length ? Math.max(...remontit.map(r => r.id || 0)) : 0;
+  renderRemontit();
+
+  onPriceChange();
+
+  // Näytä tallennetut tulokset
+  res = { ind: k.tulokset.ind, comp: k.tulokset.comp, p };
+  get('results').style.display = 'block';
+  get('saveCard').style.display = 'none';
+
+  renderSidebar();
+  showH(horizon);
+  setTimeout(() => get('results').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+function clearForm() {
+  activeKohdeId = null;
+  ['price','sqm','equity','rent','maintenance'].forEach(id => get(id).value = '');
+  get('loanYears').value = 25;
+  get('rate').value = 3.5;
+  get('repairs').value = 1000;
+  get('appreciation').value = 1.0;
+  get('loanBox').style.display = 'none';
+  get('address').value = '';
+  get('hakuTyyppi').value = '2';
+  get('geoMsg').innerHTML = '';
+  get('marketInfo').style.display = 'none';
+  get('results').style.display = 'none';
+  get('saveCard').style.display = 'none';
+  res = null;
+  remontit = [];
+  _rId = 0;
+  renderRemontit();
+  renderSidebar();
+}
+
+async function saveKohde() {
+  const nimi = get('kohdeNimi').value.trim();
+  if (!nimi) { get('saveMsg').innerHTML = '<div class="msg error">Anna kohteelle nimi</div>'; return; }
+  if (!res) return;
+  const r = await fetch('/api/kohteet', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nimi, params: res.p, tulokset: { ind: res.ind, comp: res.comp } })
+  });
+  if (r.ok) {
+    get('saveMsg').innerHTML = '<div class="msg success">Tallennettu!</div>';
+    get('kohdeNimi').value = '';
+    setTimeout(() => get('saveMsg').innerHTML = '', 2500);
+    loadKohteet();
+    get('savedSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+async function updateKohde() {
+  if (!activeKohdeId || !res) return;
+  const nimi = get('kohdeNimi').value.trim();
+  if (!nimi) { get('saveMsg').innerHTML = '<div class="msg error">Anna kohteelle nimi</div>'; return; }
+  const r = await fetch('/api/kohteet/' + activeKohdeId, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nimi, params: res.p, tulokset: { ind: res.ind, comp: res.comp } })
+  });
+  if (r.ok) {
+    get('saveMsg').innerHTML = '<div class="msg success">Päivitetty!</div>';
+    setTimeout(() => get('saveMsg').innerHTML = '', 2500);
+    loadKohteet();
+  }
+}
+
+async function deleteKohde(id) {
+  await fetch('/api/kohteet/' + id, { method: 'DELETE' });
+  if (activeKohdeId === id) { activeKohdeId = null; }
+  loadKohteet();
+}
+
+function setCompH(h, btn) {
+  compH = h;
+  get('compHtabs').querySelectorAll('.htab').forEach((t,i) => t.classList.toggle('active', [5,10,15][i]===h));
+  renderSaved();
+}
+
+function h_(k, mode, field) {
+  // horizons keys come back as strings after JSON round-trip
+  const hobj = k.tulokset[mode].horizons;
+  const data = hobj[compH] ?? hobj[String(compH)];
+  return data ? data[field] : null;
+}
+
+function renderSaved() {
+  const wrap = get('savedWrap');
+  if (!savedKohteet.length) {
+    wrap.innerHTML = '<p style="color:#94a3b8;font-size:0.875rem">Ei tallennettuja kohteita. Laske ensin sijoituksen tuotto ja tallenna kohde.</p>';
+    return;
+  }
+
+  const rows = [
+    { label: 'Hinta',                  fn: k => fmt(k.params.price) + ' €' },
+    { label: 'Neliöt',                 fn: k => k.params.sqm + ' m²' },
+    { label: 'Neliöhinta',             fn: k => fmt(k.params.price / k.params.sqm) + ' €/m²',  num: k => k.params.price / k.params.sqm, lower: true },
+    { label: 'Oma pääoma',             fn: k => fmt(k.params.equity) + ' €' },
+    { label: 'Vuokra/kk',              fn: k => fmt(k.params.rent) + ' €' },
+    { label: 'Bruttovuokratuotto',     fn: k => (k.params.rent*12/k.params.price*100).toFixed(1)+' %', num: k => k.params.rent*12/k.params.price*100 },
+    { label: 'Kassavirta/kk – yksit.', fn: k => fmtS(h_(k,'ind','cfMo'))+' €',   num: k => h_(k,'ind','cfMo') },
+    { label: 'Kassavirta/kk – Oy',     fn: k => fmtS(h_(k,'comp','cfMo'))+' €',  num: k => h_(k,'comp','cfMo') },
+    { label: 'Kokonaistuotto – yksit.', fn: k => fmtS(h_(k,'ind','totalRet'))+' €',  num: k => h_(k,'ind','totalRet') },
+    { label: 'Kokonaistuotto – Oy',    fn: k => fmtS(h_(k,'comp','totalRet'))+' €', num: k => h_(k,'comp','totalRet') },
+    { label: 'Vuosituotto p.a. – yksit.', fn: k => pct(h_(k,'ind','cagr')),  num: k => parseFloat(h_(k,'ind','cagr')) },
+    { label: 'Vuosituotto p.a. – Oy',  fn: k => pct(h_(k,'comp','cagr')), num: k => parseFloat(h_(k,'comp','cagr')) },
+  ];
+
+  const thead = `<tr>
+    <th>Mittari (${compH}v)</th>
+    ${savedKohteet.map(k => `<th style="text-align:right">${k.nimi}<br>
+      <span style="font-weight:400;font-size:0.65rem;color:#94a3b8">${k.luotu.slice(0,10)}</span></th>`).join('')}
+  </tr>`;
+
+  const tbody = rows.map(row => {
+    const cells = savedKohteet.map(k => {
+      try { return { text: row.fn(k) ?? '—', num: row.num ? row.num(k) : null }; }
+      catch { return { text: '—', num: null }; }
+    });
+    const nums = cells.map(c => c.num).filter(n => n != null && isFinite(n));
+    const best = nums.length ? (row.lower ? Math.min(...nums) : Math.max(...nums)) : null;
+    return `<tr><td>${row.label}</td>${cells.map(c =>
+      `<td style="text-align:right" class="${c.num != null && c.num === best ? 'better' : ''}">${c.text}</td>`
+    ).join('')}</tr>`;
+  }).join('');
+
+  const delRow = `<tr><td></td>${savedKohteet.map(k =>
+    `<td style="text-align:right"><button onclick="deleteKohde(${k.id})"
+      style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:0.75rem;padding:0.2rem 0">
+      Poista</button></td>`
+  ).join('')}</tr>`;
+
+  wrap.innerHTML = `<div style="overflow-x:auto">
+    <table class="comp-table"><thead>${thead}</thead><tbody>${tbody}${delRow}</tbody></table>
+  </div>`;
+}
+
+loadKohteet();
+</script>
+</body>
+</html>
