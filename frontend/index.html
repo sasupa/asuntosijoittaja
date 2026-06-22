@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asuntosijoittajalaskuri</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; }
@@ -49,6 +48,7 @@ header p { opacity: 0.75; font-size: 0.8rem; }
 .msg.loading { background: #eff6ff; color: #2563eb; }
 .msg.error { background: #fef2f2; color: #dc2626; }
 .msg.success { background: #f0fdf4; color: #16a34a; }
+.msg.warning { background: #fffbeb; color: #b45309; }
 
 .htabs { display: flex; gap: 0.5rem; }
 .htab { padding: 0.4rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 6px; background: white; cursor: pointer; font-weight: 500; font-size: 0.85rem; color: #64748b; }
@@ -74,8 +74,6 @@ header p { opacity: 0.75; font-size: 0.8rem; }
 .better { color: #16a34a; font-weight: 600; }
 .worse { color: #dc2626; }
 
-.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 0.65rem; }
-.chart-wrap { position: relative; height: 190px; }
 
 .ytable-wrap { overflow-x: auto; }
 .ytable { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
@@ -95,10 +93,13 @@ header p { opacity: 0.75; font-size: 0.8rem; }
 
 /* Sidebar items */
 .sidebar-empty { font-size: 0.8rem; color: #94a3b8; padding: 0.5rem 0 0.25rem; }
-.sidebar-item { padding: 0.55rem 0.75rem; border-radius: 8px; cursor: pointer; border-left: 3px solid transparent; margin-bottom: 0.2rem; transition: all 0.12s; }
+.sidebar-item { display: flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.75rem; border-radius: 8px; cursor: pointer; border-left: 3px solid transparent; margin-bottom: 0.2rem; transition: all 0.12s; }
 .sidebar-item:hover { background: #f8fafc; border-left-color: #bfdbfe; }
 .sidebar-item.active { background: #eff6ff; border-left-color: #2563eb; }
+.si-info { flex: 1; min-width: 0; }
 .si-name { font-size: 0.83rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-del { flex-shrink: 0; background: none; border: none; padding: 0.15rem 0.2rem; cursor: pointer; color: #cbd5e1; border-radius: 4px; line-height: 1; transition: color 0.12s; }
+.si-del:hover { color: #dc2626; }
 .si-meta { font-size: 0.68rem; color: #94a3b8; margin-top: 0.1rem; }
 .si-cf { font-weight: 700; }
 .si-cf.pos { color: #16a34a; }
@@ -270,22 +271,17 @@ header p { opacity: 0.75; font-size: 0.8rem; }
   <button class="btn-primary" onclick="calculate()">Laske sijoituksen tuotto</button>
 
   <!-- Vertailutaulukko – aina näkyvissä -->
-  <div class="card" id="savedSection">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem">
-      <div class="card-title" style="margin-bottom:0">Tallennetut kohteet</div>
-      <div class="htabs" id="compHtabs">
-        <button class="htab active" onclick="setCompH(5,this)">5 vuotta</button>
-        <button class="htab" onclick="setCompH(10,this)">10 vuotta</button>
-        <button class="htab" onclick="setCompH(15,this)">15 vuotta</button>
-      </div>
-    </div>
-    <div id="savedWrap"><p style="color:#94a3b8;font-size:0.875rem">Ei tallennettuja kohteita.</p></div>
-  </div>
 
   <div id="results">
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
-        <div class="card-title" style="margin-bottom:0">Tulokset</div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <div class="card-title" style="margin-bottom:0">Tulokset</div>
+          <div class="toggle" id="viewToggle">
+            <button class="active" onclick="setViewMode('individual',this)">Yksityishenkilö</button>
+            <button onclick="setViewMode('company',this)">Osakeyhtiö</button>
+          </div>
+        </div>
         <div class="htabs">
           <button class="htab active" onclick="showH(5,this)">5 vuotta</button>
           <button class="htab" onclick="showH(10,this)">10 vuotta</button>
@@ -293,25 +289,12 @@ header p { opacity: 0.75; font-size: 0.8rem; }
         </div>
       </div>
       <div id="invested" style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem;"></div>
-      <div id="kpiInd"></div>
-      <div id="kpiComp"></div>
-      <div style="margin-top:1.25rem;margin-bottom:0.75rem;" class="card-title">Vertailu yksityinen vs. osakeyhtiö</div>
-      <div style="overflow-x:auto">
+      <div id="kpiView"></div>
+      <div style="overflow-x:auto;margin-top:1rem">
         <table class="comp-table">
-          <thead><tr><th>Mittari</th><th>Yksityishenkilö</th><th>Osakeyhtiö</th></tr></thead>
+          <thead><tr><th>Mittari</th><th id="compColHead" style="text-align:right">Arvo</th></tr></thead>
           <tbody id="compBody"></tbody>
         </table>
-      </div>
-    </div>
-
-    <div class="chart-row">
-      <div class="card">
-        <div class="card-title">Kassavirta/kk vuosittain</div>
-        <div class="chart-wrap"><canvas id="cfChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Varallisuuden kehitys</div>
-        <div class="chart-wrap"><canvas id="wChart"></canvas></div>
       </div>
     </div>
 
@@ -336,7 +319,7 @@ header p { opacity: 0.75; font-size: 0.8rem; }
     </div>
 
     <div class="card">
-      <div class="card-title">Vuosikohtainen erittely — yksityishenkilö</div>
+      <div class="card-title" id="ytTitle">Vuosikohtainen erittely — yksityishenkilö</div>
       <div class="ytable-wrap">
         <table class="ytable">
           <thead>
@@ -361,8 +344,9 @@ let mkt = {};
 let res = null;
 let horizon = 5;
 let assetType = 'osake';
-let cfChartInst = null, wChartInst = null;
+
 let activeKohdeId = null;
+let viewMode = 'individual';
 let remontit = [];
 let _rId = 0;
 
@@ -374,6 +358,17 @@ const val = id => parseFloat(get(id).value.replace(/\s/g, '').replace(',', '.'))
 
 function msg(id, text, type) {
   get(id).innerHTML = text ? `<div class="msg ${type}">${text}</div>` : '';
+}
+
+function _varoitusPostinumero(postinumero, kaupunki) {
+  const pref = (postinumero || '').substring(0, 2);
+  const kp = (kaupunki || '').toLowerCase();
+  const map = { '00': 'Helsinki', '02': 'Espoo' };
+  const odotettu = map[pref];
+  if (odotettu && kp !== odotettu.toLowerCase()) {
+    return `⚠ Postinumero ${postinumero} kuuluu ${odotettu}n alueeseen, mutta osoite tunnistettiin kaupungiksi "${kaupunki}". Kyseessä voi olla OSM-karttavirhe. Tarkista postinumero – vuokrahaku käyttää kaupunkia "${kaupunki}".`;
+  }
+  return null;
 }
 
 function setAsset(type, btn) {
@@ -479,6 +474,8 @@ async function fetchMarket() {
     } else {
       msg('geoMsg', `${geo.katuosoite}, ${geo.kaupunki} (${geo.postinumero})`, 'success');
     }
+    const varoitus = _varoitusPostinumero(geo.postinumero, geo.kaupunki);
+    if (varoitus) get('geoMsg').innerHTML += `<div class="msg warning">${varoitus}</div>`;
   } catch(e) {
     msg('geoMsg', 'Virhe: ' + e.message, 'error');
   }
@@ -617,7 +614,8 @@ function simulate(p, mode) {
       tax = ti <= 30000 ? ti * 0.30 : 30000*0.30 + (ti-30000)*0.34;
     } else {
       admin = p.adminCost ?? 1500;
-      const depr = p.price * 0.70 * 0.04;
+      // Poistot sallitaan vain kiinteistöille – asunto-osakkeista ei voi tehdä poistoja (EVL)
+      const depr = p.assetType === 'kiinteisto' ? p.price * 0.70 * 0.04 : 0;
       const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs - admin - depr);
       tax = ti * 0.20;
     }
@@ -727,7 +725,14 @@ function showH(h, btn) {
   horizon = h;
   get('results').querySelectorAll('.htab').forEach((t,i) => t.classList.toggle('active', [5,10,15][i]===h));
   if (!res) return;
-  renderKPIs(h); renderComp(h); renderCharts(h); renderYearTable(h);
+  renderKPIs(h); renderComp(h); renderYearTable(h);
+}
+
+function setViewMode(mode, btn) {
+  viewMode = mode;
+  get('viewToggle').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (res) { renderKPIs(horizon); renderComp(horizon); renderYearTable(horizon); }
 }
 
 function kpiCard(label, value, sub, cls) {
@@ -735,86 +740,42 @@ function kpiCard(label, value, sub, cls) {
 }
 
 function renderKPIs(h) {
-  const i = res.ind.horizons[h], c = res.comp.horizons[h];
+  const i = res.ind.horizons[h];
+  const d = viewMode === 'individual' ? i : res.comp.horizons[h];
   get('invested').textContent = `Sijoitettu pääoma: ${fmt(i.totalInvested)} € (ml. varainsiirtovero ${fmt(i.transferTax)} €, laina ${fmt(Math.max(0, res.p.price - res.p.equity))} €)`;
-
-  const renderSet = (d, id) => {
-    get(id).innerHTML = `
-      <div class="kpi-section-label">${id==='kpiInd'?'Yksityishenkilö':'Osakeyhtiö'}</div>
-      <div class="kpi-grid">
-        ${kpiCard('Kassavirta/kk', fmtS(d.cfMo)+' €', 'verojen jälkeen', d.cfMo>=0?'pos':'neg')}
-        ${kpiCard('Oma pääoma '+h+'v', fmt(d.equity)+' €', 'arvo − lainasaldo', 'dark')}
-        ${kpiCard('Myyntivoitto', fmtS(d.saleNet)+' €', 'verojen jälkeen', d.saleNet>=0?'pos':'neg')}
-        ${kpiCard('Vuosituotto', pct(d.cagr), 'p.a. kokonaistuotto', 'blue')}
-      </div>`;
-  };
-  renderSet(i, 'kpiInd');
-  renderSet(c, 'kpiComp');
+  get('kpiView').innerHTML = `<div class="kpi-grid">
+    ${kpiCard('Kassavirta/kk', fmtS(d.cfMo)+' €', 'verojen jälkeen', d.cfMo>=0?'pos':'neg')}
+    ${kpiCard('Oma pääoma '+h+'v', fmt(d.equity)+' €', 'arvo − lainasaldo', 'dark')}
+    ${kpiCard('Myyntivoitto', fmtS(d.saleNet)+' €', 'verojen jälkeen', d.saleNet>=0?'pos':'neg')}
+    ${kpiCard('Vuosituotto', pct(d.cagr), 'p.a. kokonaistuotto', 'blue')}
+  </div>`;
 }
 
 function renderComp(h) {
-  const i = res.ind.horizons[h], c = res.comp.horizons[h];
+  const d = viewMode === 'individual' ? res.ind.horizons[h] : res.comp.horizons[h];
+  const lbl = viewMode === 'individual' ? 'Yksityishenkilö' : 'Osakeyhtiö';
+  get('compColHead').textContent = lbl;
   const rows = [
-    ['Kassavirta/kk', i.cfMo, c.cfMo, true, v => fmtS(v)+' €'],
-    ['Kumulat. kassavirta', i.cumCF, c.cumCF, true, v => fmtS(v)+' €'],
-    ['Myyntivoitto (netto)', i.saleNet, c.saleNet, true, v => fmtS(v)+' €'],
-    ['Kokonaistuotto', i.totalRet, c.totalRet, true, v => fmtS(v)+' €'],
-    ['Vuosituotto (p.a.)', parseFloat(i.cagr), parseFloat(c.cagr), true, v => pct(v)],
-    ['Kiinteistön arvo', i.propVal, c.propVal, false, v => fmt(v)+' €'],
-    ['Oma pääoma', i.equity, c.equity, false, v => fmt(v)+' €'],
+    ['Kassavirta/kk',       d.cfMo,              v => fmtS(v)+' €',  true],
+    ['Kumulat. kassavirta', d.cumCF,              v => fmtS(v)+' €',  true],
+    ['Myyntivoitto (netto)',d.saleNet,             v => fmtS(v)+' €',  true],
+    ['Kokonaistuotto',      d.totalRet,            v => fmtS(v)+' €',  true],
+    ['Vuosituotto (p.a.)',  parseFloat(d.cagr),    v => pct(v),         true],
+    ['Kiinteistön arvo',    d.propVal,             v => fmt(v)+' €',   false],
+    ['Lainasaldo',          d.balance,             v => fmt(v)+' €',   false],
+    ['Oma pääoma',          d.equity,              v => fmt(v)+' €',   false],
   ];
-  get('compBody').innerHTML = rows.map(([lbl, iv, cv, cmp, f]) => {
-    const ic = cmp ? (iv > cv ? 'better' : iv < cv ? 'worse' : '') : '';
-    const cc = cmp ? (cv > iv ? 'better' : cv < iv ? 'worse' : '') : '';
-    return `<tr><td>${lbl}</td><td class="${ic}">${f(iv)}</td><td class="${cc}">${f(cv)}</td></tr>`;
+  get('compBody').innerHTML = rows.map(([label, val, f, signed]) => {
+    const cls = signed ? (val > 0 ? 'better' : val < 0 ? 'worse' : '') : '';
+    return `<tr><td>${label}</td><td class="${cls}" style="text-align:right">${f(val)}</td></tr>`;
   }).join('');
 }
 
-function renderCharts(h) {
-  const indY = res.ind.yearly.slice(0,h);
-  const compY = res.comp.yearly.slice(0,h);
-  const labels = indY.map(y => 'V'+y.year);
-
-  if (cfChartInst) cfChartInst.destroy();
-  if (wChartInst) wChartInst.destroy();
-
-  cfChartInst = new Chart(get('cfChart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Yksityinen (€/kk)', data: indY.map(y=>y.cfMo), backgroundColor: '#bfdbfe', borderColor: '#2563eb', borderWidth: 1 },
-        { label: 'Osakeyhtiö (€/kk)', data: compY.map(y=>y.cfMo), backgroundColor: '#bbf7d0', borderColor: '#16a34a', borderWidth: 1 }
-      ]
-    },
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{labels:{font:{size:11}}} },
-      scales:{ y:{ticks:{font:{size:10}}}, x:{ticks:{font:{size:10}}} }
-    }
-  });
-
-  wChartInst = new Chart(get('wChart'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Kiint. arvo', data: indY.map(y=>y.propVal), borderColor:'#7c3aed', backgroundColor:'transparent', tension:0.3, pointRadius:3 },
-        { label: 'Pääoma (yksit.)', data: indY.map(y=>y.equity), borderColor:'#2563eb', backgroundColor:'#eff6ff60', fill:true, tension:0.3, pointRadius:3 },
-        { label: 'Pääoma (Oy)', data: compY.map(y=>y.equity), borderColor:'#16a34a', borderDash:[4,3], backgroundColor:'transparent', tension:0.3, pointRadius:3 }
-      ]
-    },
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{labels:{font:{size:11}}} },
-      scales:{
-        y:{ ticks:{ font:{size:10}, callback: v => (v>=1000?Math.round(v/1000)+'k':v)+' €' } },
-        x:{ ticks:{font:{size:10}} }
-      }
-    }
-  });
-}
 
 function renderYearTable(h) {
-  get('ytBody').innerHTML = res.ind.yearly.slice(0,h).map(y => `
+  const yearly = (viewMode === 'individual' ? res.ind : res.comp).yearly;
+  get('ytTitle').textContent = `Vuosikohtainen erittely — ${viewMode === 'individual' ? 'yksityishenkilö' : 'osakeyhtiö'}`;
+  get('ytBody').innerHTML = yearly.slice(0,h).map(y => `
     <tr>
       <td>${y.year}</td>
       <td>${fmt(y.rent12)} €</td>
@@ -830,10 +791,9 @@ function renderYearTable(h) {
     </tr>`).join('');
 }
 
-// ── Tallennus & vertailu ──────────────────────────────────────────────────────
+// ── Tallennus ─────────────────────────────────────────────────────────────────
 
 let savedKohteet = [];
-let compH = 5;
 
 async function loadKohteet() {
   try {
@@ -841,7 +801,6 @@ async function loadKohteet() {
     savedKohteet = await r.json();
   } catch { savedKohteet = []; }
   renderSidebar();
-  renderSaved();
 }
 
 function renderSidebar() {
@@ -861,8 +820,13 @@ function renderSidebar() {
     const cf = k.tulokset?.ind?.horizons?.[5]?.cfMo ?? k.tulokset?.ind?.horizons?.['5']?.cfMo;
     const cfText = cf != null ? `<span class="si-cf ${cf>=0?'pos':'neg'}">${fmtS(cf)} €/kk</span>` : '';
     return `<div class="sidebar-item${activeKohdeId===k.id?' active':''}" onclick="loadKohde(${k.id})">
-      <div class="si-name">${k.nimi}</div>
-      <div class="si-meta">${k.luotu.slice(0,10)} ${cfText}</div>
+      <div class="si-info">
+        <div class="si-name">${k.nimi}</div>
+        <div class="si-meta">${k.luotu.slice(0,10)} ${cfText}</div>
+      </div>
+      <button class="si-del" title="Poista" onclick="event.stopPropagation();deleteKohde(${k.id})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>
     </div>`;
   }).join('');
 }
@@ -968,7 +932,6 @@ async function saveKohde() {
     get('kohdeNimi').value = '';
     setTimeout(() => get('saveMsg').innerHTML = '', 2500);
     loadKohteet();
-    get('savedSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
@@ -992,70 +955,6 @@ async function deleteKohde(id) {
   await fetch('/api/kohteet/' + id, { method: 'DELETE' });
   if (activeKohdeId === id) { activeKohdeId = null; }
   loadKohteet();
-}
-
-function setCompH(h, btn) {
-  compH = h;
-  get('compHtabs').querySelectorAll('.htab').forEach((t,i) => t.classList.toggle('active', [5,10,15][i]===h));
-  renderSaved();
-}
-
-function h_(k, mode, field) {
-  // horizons keys come back as strings after JSON round-trip
-  const hobj = k.tulokset[mode].horizons;
-  const data = hobj[compH] ?? hobj[String(compH)];
-  return data ? data[field] : null;
-}
-
-function renderSaved() {
-  const wrap = get('savedWrap');
-  if (!savedKohteet.length) {
-    wrap.innerHTML = '<p style="color:#94a3b8;font-size:0.875rem">Ei tallennettuja kohteita. Laske ensin sijoituksen tuotto ja tallenna kohde.</p>';
-    return;
-  }
-
-  const rows = [
-    { label: 'Hinta',                  fn: k => fmt(k.params.price) + ' €' },
-    { label: 'Neliöt',                 fn: k => k.params.sqm + ' m²' },
-    { label: 'Neliöhinta',             fn: k => fmt(k.params.price / k.params.sqm) + ' €/m²',  num: k => k.params.price / k.params.sqm, lower: true },
-    { label: 'Oma pääoma',             fn: k => fmt(k.params.equity) + ' €' },
-    { label: 'Vuokra/kk',              fn: k => fmt(k.params.rent) + ' €' },
-    { label: 'Bruttovuokratuotto',     fn: k => (k.params.rent*12/k.params.price*100).toFixed(1)+' %', num: k => k.params.rent*12/k.params.price*100 },
-    { label: 'Kassavirta/kk – yksit.', fn: k => fmtS(h_(k,'ind','cfMo'))+' €',   num: k => h_(k,'ind','cfMo') },
-    { label: 'Kassavirta/kk – Oy',     fn: k => fmtS(h_(k,'comp','cfMo'))+' €',  num: k => h_(k,'comp','cfMo') },
-    { label: 'Kokonaistuotto – yksit.', fn: k => fmtS(h_(k,'ind','totalRet'))+' €',  num: k => h_(k,'ind','totalRet') },
-    { label: 'Kokonaistuotto – Oy',    fn: k => fmtS(h_(k,'comp','totalRet'))+' €', num: k => h_(k,'comp','totalRet') },
-    { label: 'Vuosituotto p.a. – yksit.', fn: k => pct(h_(k,'ind','cagr')),  num: k => parseFloat(h_(k,'ind','cagr')) },
-    { label: 'Vuosituotto p.a. – Oy',  fn: k => pct(h_(k,'comp','cagr')), num: k => parseFloat(h_(k,'comp','cagr')) },
-  ];
-
-  const thead = `<tr>
-    <th>Mittari (${compH}v)</th>
-    ${savedKohteet.map(k => `<th style="text-align:right">${k.nimi}<br>
-      <span style="font-weight:400;font-size:0.65rem;color:#94a3b8">${k.luotu.slice(0,10)}</span></th>`).join('')}
-  </tr>`;
-
-  const tbody = rows.map(row => {
-    const cells = savedKohteet.map(k => {
-      try { return { text: row.fn(k) ?? '—', num: row.num ? row.num(k) : null }; }
-      catch { return { text: '—', num: null }; }
-    });
-    const nums = cells.map(c => c.num).filter(n => n != null && isFinite(n));
-    const best = nums.length ? (row.lower ? Math.min(...nums) : Math.max(...nums)) : null;
-    return `<tr><td>${row.label}</td>${cells.map(c =>
-      `<td style="text-align:right" class="${c.num != null && c.num === best ? 'better' : ''}">${c.text}</td>`
-    ).join('')}</tr>`;
-  }).join('');
-
-  const delRow = `<tr><td></td>${savedKohteet.map(k =>
-    `<td style="text-align:right"><button onclick="deleteKohde(${k.id})"
-      style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:0.75rem;padding:0.2rem 0">
-      Poista</button></td>`
-  ).join('')}</tr>`;
-
-  wrap.innerHTML = `<div style="overflow-x:auto">
-    <table class="comp-table"><thead>${thead}</thead><tbody>${tbody}${delRow}</tbody></table>
-  </div>`;
 }
 
 loadKohteet();

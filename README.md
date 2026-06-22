@@ -9,7 +9,7 @@ Yksinkertainen web-sovellus sijoitusasunnon kannattavuuden arviointiin 5, 10 ja 
 - **Asuntotyyppikohtainen haku** – yksiö, kaksio, kolmio+ tai rivitalo ohjaa molemmat markkinatietohaut
 - **Kaksi sijoitusmuotoa** – yksityishenkilö vs. osakeyhtiö verotuksineen rinnakkain
 - **Remonttisuunnittelu** – lisää taloyhtiön ja omat remontit vuosikohtaisesti; valitse kertasuoritus, rahoitusvastike tai laina – kuukausierä lasketaan automaattisesti
-- **Graafit ja taulukot** – kassavirtakaavio, varallisuuden kehitys ja vuosikohtainen erittely
+- **Tulosvaihtoehto** – liukukytkimellä valitaan tarkastellaanko tuloksia yksityishenkilönä vai osakeyhtiönä; vuosikohtainen erittely valitulle sijoitusmuodolle
 - **Kohteiden tallennus** – tallenna useita kohteita ja vertaile niitä rinnakkain
 
 ## Käyttö
@@ -51,7 +51,7 @@ Kaikki tietolähteet ovat avoimia eikä API-avaimia tarvita.
 ## Tech stack
 
 - **Backend:** Python 3.11+, FastAPI, uvicorn, httpx
-- **Frontend:** Vanilla JS, Chart.js (CDN), yksittäinen HTML-tiedosto
+- **Frontend:** Vanilla JS, yksittäinen HTML-tiedosto (ei ulkoisia skriptejä)
 - **Tietokanta:** SQLite (stdlib `sqlite3`)
 
 ## Laskentaperiaatteet

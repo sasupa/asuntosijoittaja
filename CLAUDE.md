@@ -7,7 +7,7 @@ Yksinkertainen web-sovellus, joka arvioi asuntosijoituksen kannattavuutta 5/10/1
 ## Tech stack
 
 - **Backend:** FastAPI (Python 3.11+)
-- **Frontend:** Yksittäinen `index.html` – vanilla JS, Chart.js CDN, ei build-steppiä
+- **Frontend:** Yksittäinen `index.html` – vanilla JS, ei ulkoisia JS-riippuvuuksia, ei build-steppiä
 - **Tietokanta:** SQLite (`kohteet.db`), Python stdlib `sqlite3`
 - **Riippuvuudet:** `fastapi`, `uvicorn[standard]`, `httpx`, `requests`
 
@@ -42,6 +42,7 @@ Hakee alueen keskimääräiset ostohinnat Tilastokeskuksen PxWeb-API:sta (taulu 
 - **Parametrit:** `postinumero` (str), `talotyyppi` (str: `"1"`=yksiöt, `"2"`=kaksiot, `"3"`=kolmiot+, `"4"`=rivitalot)
 - **Vastaus:** `{ postinumero, talotyyppi, viimeisin_neliohinta, kvartaali, historia }`
 - **Toteutus:** Hae metadata dynaamisesti GET-kutsulla → POST query. Aggregoi kvartaaleittain vuosittain.
+- **Talotyyppi-koodit:** API:n `tyyppi["values"]` on esim. `['1','2','3','5']` – arvot eivät ole sama kuin parametri. Siksi `api_code = tyyppi["values"][int(talotyyppi) - 1]` (positioperusteinen, ei arvovertailu). `TALOTYYPPI_NIMET` on lista, ei dict – indeksointi on sama 1-pohjainen.
 
 ### GET /api/vuokrat
 
@@ -69,7 +70,7 @@ Poista kohde.
 
 ## Frontend (frontend/index.html)
 
-Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Chart.js ladataan CDN:stä.
+Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Ei ulkoisia skriptejä.
 
 **Layout:** `.app-layout` CSS Grid, `grid-template-columns: 1fr 2fr`. Vasen on `<aside class="sidebar">` (sticky). Ei responsiivisia breakpointteja – sovellus on optimoitu lg-näytölle.
 
@@ -94,10 +95,10 @@ Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Chart.js ladataan CD
 - `totalRepairs = p.repairs + remoKerta + remoLainaMo * 12`
 
 **Tulokset (5 / 10 / 15 v):**
-- KPI-kortit: kassavirta/kk, oma pääoma, myyntivoitto, vuosituotto p.a.
-- Vertailutaulukko yksityinen vs. osakeyhtiö
-- Kassavirtakaavio (Chart.js bar) ja varallisuuskehityskaavio (Chart.js line)
-- Vuosikohtainen erittely (yksityishenkilö)
+- `viewMode`-liukukytkin (Yksityishenkilö | Osakeyhtiö) heti "Laske"-napin alla – ohjaa kaikkia tulosnäkymiä
+- KPI-kortit: kassavirta/kk, oma pääoma, myyntivoitto, vuosituotto p.a. – näyttää aktiivisen viewMode:n arvot
+- Mittari-taulukko: yksi sarake, sisältö valitun viewMode:n mukaan (`renderComp()`)
+- Vuosikohtainen erittely: yksi sarake, valittu viewMode
 
 ### Tärkeät JS-funktiot
 
@@ -110,6 +111,8 @@ Yksisivuinen laskuri. Kaikki CSS ja JS tässä tiedostossa. Chart.js ladataan CD
 | `onSqmChange()` | Päivittää hoitovastike (4 €/m²) ja vuokra-arvion **aina** neliöiden muuttuessa |
 | `loadKohde(id)` | Täyttää lomakkeen, palauttaa markkinatiedot + remontit |
 | `clearForm()` | Tyhjentää kaiken, nollaa `activeKohdeId` |
+| `setViewMode(mode, btn)` | Vaihtaa `viewMode`-tilan, aktivoi toggl-napin, kutsuu `renderKPIs/renderComp/renderYearTable` |
+| `renderComp(h)` | Piirtää mittari-taulukon – yksi sarake, valitun `viewMode`:n data |
 | `addRemontti()` / `renderRemontit()` | Remontit-listan hallinta |
 | `calcTrend(historia)` | Laskee CAGR viimeiseltä 5v `historia`-objektista |
 | `showPriceTrend(historia)` | Näyttää trendin `#mPriceTrend`-elementissä |
@@ -123,10 +126,10 @@ let res = null;         // { ind, comp, p } – viimeisin laskentatulos
 let horizon = 5;        // aktiivinen horisontti (5/10/15)
 let assetType = 'osake';
 let activeKohdeId = null;
+let viewMode = 'individual'; // 'individual' | 'comp' – ohjaa kaikkia tulosnäkymiä
 let remontit = [];      // [{ id, nimi, vuosi, summa, tyyppi, rahoitus, lainaKorko, lainaVuodet }]
 let _rId = 0;           // remontit-id-laskuri
 let savedKohteet = [];
-let compH = 5;          // vertailutaulukon horisontti
 ```
 
 ## Verotuslogiikka (JavaScript)
@@ -142,9 +145,9 @@ let compH = 5;          // vertailutaulukon horisontti
 ### Osakeyhtiö
 
 - Yhtiöverokanta: 20 %
-- Vähennykset: kaikki kulut + poistot rakennuksesta (70 % hinnasta × 4 %/v)
+- Vähennykset: kaikki kulut + poistot rakennuksesta (70 % hinnasta × 4 %/v, **vain kiinteistöt** – asunto-osakkeista ei voi tehdä poistoja, EVL)
 - Myyntivoitto: 20 % yhtiövero → osinkojen nosto ~12 % lisäverotus (yhteensä ~30 %)
-- Hallinto- ja kirjanpitokulut: 1 500 €/v
+- Hallinto- ja kirjanpitokulut: `adminCost` €/v – käyttäjän syöttämä kenttä (oletusarvo 1 500 €/v, `p.adminCost ?? 1500`)
 
 ## Lainan laskenta
 
@@ -156,7 +159,7 @@ SQLite, luodaan automaattisesti käynnistyksessä.
 
 **Taulu `kohteet`:** `id, nimi, luotu (ISO), params (JSON), tulokset (JSON)`
 
-**params-kentät:** `price, sqm, equity, rent, loanYears, rate, maintenance, repairs, appreciation, assetType, address, hakuTyyppi, geo, hinnat, vuokrat, remontit`
+**params-kentät:** `price, sqm, equity, rent, loanYears, rate, maintenance, repairs, appreciation, adminCost, assetType, address, hakuTyyppi, geo, hinnat, vuokrat, remontit`
 
 **remontit-alkion rakenne:** `{ id, nimi, vuosi, summa, tyyppi ('taloyhtiö'|'oma'), rahoitus ('kertasuoritus'|'rahoitusvastike'|'laina'), lainaKorko, lainaVuodet }`
 

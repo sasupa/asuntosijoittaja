@@ -157,12 +157,12 @@ def _find_var(variables: list, *hints: str) -> dict | None:
     return None
 
 
-TALOTYYPPI_NIMET = {
-    "1": "Kerrostalo yksiöt",
-    "2": "Kerrostalo kaksiot",
-    "3": "Kerrostalo kolmiot+",
-    "4": "Rivitalot yhteensä",
-}
+TALOTYYPPI_NIMET = [
+    "Kerrostalo yksiöt",
+    "Kerrostalo kaksiot",
+    "Kerrostalo kolmiot+",
+    "Rivitalot yhteensä",
+]
 
 
 @app.get("/api/hinnat")
@@ -186,8 +186,13 @@ async def hinnat(postinumero: str, talotyyppi: str = "2"):
     if postinumero not in posti["values"]:
         raise HTTPException(status_code=404, detail=f"Postinumeroa {postinumero} ei löydy asuntohintatilastoista")
 
-    if talotyyppi not in tyyppi["values"]:
-        talotyyppi = tyyppi["values"][0]
+    # Muunna käyttöliittymän 1-pohjainen indeksi (1,2,3,4) API:n todelliseksi koodiksi
+    # API:n values voivat olla esim. ['1','2','3','5'] – järjestys on vakaa, arvot eivät
+    try:
+        api_code = tyyppi["values"][int(talotyyppi) - 1]
+    except (ValueError, IndexError):
+        api_code = tyyppi["values"][0]
+    talotyyppi_nimi = TALOTYYPPI_NIMET[int(talotyyppi) - 1] if 1 <= int(talotyyppi or 1) <= len(TALOTYYPPI_NIMET) else talotyyppi
 
     nelio_code = tiedot["values"][0]
 
@@ -195,7 +200,7 @@ async def hinnat(postinumero: str, talotyyppi: str = "2"):
         "query": [
             {"code": aika["code"], "selection": {"filter": "top", "values": ["20"]}},
             {"code": posti["code"], "selection": {"filter": "item", "values": [postinumero]}},
-            {"code": tyyppi["code"], "selection": {"filter": "item", "values": [talotyyppi]}},
+            {"code": tyyppi["code"], "selection": {"filter": "item", "values": [api_code]}},
             {"code": tiedot["code"], "selection": {"filter": "item", "values": [nelio_code]}},
         ],
         "response": {"format": "json"},
@@ -232,7 +237,7 @@ async def hinnat(postinumero: str, talotyyppi: str = "2"):
 
     result = {
         "postinumero": postinumero,
-        "talotyyppi": TALOTYYPPI_NIMET.get(talotyyppi, talotyyppi),
+        "talotyyppi": talotyyppi_nimi,
         "viimeisin_neliohinta": viimeisin,
         "kvartaali": viimeisin_kvartaali,
         "historia": historia,
