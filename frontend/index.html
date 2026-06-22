@@ -119,6 +119,9 @@ header p { opacity: 0.75; font-size: 0.8rem; }
 .remontti-laina input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #bfdbfe55; }
 .remontti-laina-label { font-size: 0.65rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; }
 .remontti-laina-mo { font-size: 0.8rem; color: #2563eb; font-weight: 700; display: flex; align-items: flex-end; padding-bottom: 0.05rem; }
+.remontti-kirjaus { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0 0.35rem 0.5rem; border-left: 2px solid #e2e8f0; margin: 0 0 0.35rem 0; flex-wrap: wrap; }
+.remontti-kirjaus .toggle { max-width: 200px; }
+.remontti-kirjaus .kirjaus-hint { font-size: 0.67rem; color: #94a3b8; }
 .btn-del { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; }
 .btn-del:hover { color: #dc2626; }
 .remontti-total { font-size: 0.78rem; color: #64748b; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9; }
@@ -487,7 +490,7 @@ get('address').addEventListener('keypress', e => { if (e.key === 'Enter') fetchM
 
 function addRemontti(preset) {
   const id = ++_rId;
-  remontit.push(preset ? { ...preset, id } : { id, nimi: '', vuosi: 5, summa: 0, tyyppi: 'taloyhtiö', rahoitus: 'kertasuoritus', lainaKorko: 3.5, lainaVuodet: 10 });
+  remontit.push(preset ? { ...preset, id } : { id, nimi: '', vuosi: 5, summa: 0, tyyppi: 'taloyhtiö', rahoitus: 'kertasuoritus', lainaKorko: 3.5, lainaVuodet: 10, kirjaustyyppi: 'rahastoitu' });
   renderRemontit();
 }
 
@@ -563,7 +566,20 @@ function renderRemontit() {
             onchange="updateRemontti(${r.id},'lainaVuodet',this.value)" />
         </div>
         <div class="remontti-laina-mo">→ ${fmt(Math.round(mo))} €/kk</div>
-      </div>` : ''}
+      </div>
+      ${r.tyyppi === 'taloyhtiö' && r.rahoitus === 'rahoitusvastike' ? `
+      <div class="remontti-kirjaus">
+        <div class="remontti-laina-label" style="white-space:nowrap">Kirjaustyyppi</div>
+        <div class="toggle" style="max-width:200px">
+          <button class="${(r.kirjaustyyppi??'rahastoitu')==='rahastoitu'?'active':''}"
+            onclick="updateRemontti(${r.id},'kirjaustyyppi','rahastoitu')">Rahastoitu</button>
+          <button class="${r.kirjaustyyppi==='tuloutettu'?'active':''}"
+            onclick="updateRemontti(${r.id},'kirjaustyyppi','tuloutettu')">Tuloutettu</button>
+        </div>
+        <span class="kirjaus-hint">${r.kirjaustyyppi==='tuloutettu'
+          ? 'Vähennetään vuosittain vuokratulosta'
+          : 'Lisätään hankintamenoon → pienentää myyntivoittoa'}</span>
+      </div>` : ''}` : ''}
     </div>`;
   }).join('');
   renderRemonttiTotal();
@@ -584,7 +600,7 @@ function simulate(p, mode) {
   const totalInvested = p.equity + transferTax;
   const mp = annuity(loan, p.rate, p.loanYears);
 
-  let balance = loan, propVal = p.price, cumCF = 0;
+  let balance = loan, propVal = p.price, cumCF = 0, cumRahastoitu = 0;
   const yearly = [];
 
   for (let yr = 1; yr <= 15; yr++) {
@@ -600,48 +616,78 @@ function simulate(p, mode) {
 
     const rent12 = p.rent * 12;
     const maint12 = p.maintenance * 12;
+
+    // Kertasuoritukset: aina vähennyskelpoisia (vuosikorjaukset) tai hankintamenoon (perusparannus)
     const remoKerta = (p.remontit || [])
       .filter(r => r.rahoitus === 'kertasuoritus' && r.vuosi === yr)
       .reduce((s,r) => s + (r.summa || 0), 0);
-    const remoLainaMo = (p.remontit || [])
-      .filter(r => r.rahoitus !== 'kertasuoritus' && yr >= r.vuosi && yr < r.vuosi + (r.lainaVuodet || 1))
+
+    // Rahoitusvastike (taloyhtiö): jaetaan rahastoitu vs. tuloutettu
+    // Rahastoitu → ei vähennyskelpoinen vuosittain, lisätään hankintamenoon myyntivoiton laskennassa
+    // Tuloutettu → vähennyskelpoinen kaikilla (vero.fi: "jos vastikkeet on tuloutettu yhtiön kirjanpidossa")
+    const remoRVRahastoituMo = (p.remontit || [])
+      .filter(r => r.rahoitus === 'rahoitusvastike' && (r.kirjaustyyppi ?? 'rahastoitu') === 'rahastoitu'
+        && yr >= r.vuosi && yr < r.vuosi + (r.lainaVuodet || 1))
       .reduce((s,r) => s + annuity(r.summa || 0, r.lainaKorko || 0, r.lainaVuodet || 1), 0);
-    const totalRepairs = p.repairs + remoKerta + remoLainaMo * 12;
+    const remoRVTuloutettuMo = (p.remontit || [])
+      .filter(r => r.rahoitus === 'rahoitusvastike' && r.kirjaustyyppi === 'tuloutettu'
+        && yr >= r.vuosi && yr < r.vuosi + (r.lainaVuodet || 1))
+      .reduce((s,r) => s + annuity(r.summa || 0, r.lainaKorko || 0, r.lainaVuodet || 1), 0);
+
+    // Oma laina: aina vähennyskelpoinen (korko-osuus; yksinkertaistuksena koko maksu)
+    const remoOmaLainaMo = (p.remontit || [])
+      .filter(r => r.rahoitus === 'laina' && yr >= r.vuosi && yr < r.vuosi + (r.lainaVuodet || 1))
+      .reduce((s,r) => s + annuity(r.summa || 0, r.lainaKorko || 0, r.lainaVuodet || 1), 0);
+
+    // Rahastoitu kerttyy hankintamenoon (vaikuttaa myyntivoittoon)
+    cumRahastoitu += remoRVRahastoituMo * 12;
+
+    // Kassavirtaan lasketaan kaikki maksut
+    const totalRepairsAll = p.repairs + remoKerta + (remoRVRahastoituMo + remoRVTuloutettuMo + remoOmaLainaMo) * 12;
+    // Verotuksessa yksilöllä vähennetään vain tuloutettu RV + oma laina (ei rahastoitua)
+    const totalRepairsDeductible = p.repairs + remoKerta + (remoRVTuloutettuMo + remoOmaLainaMo) * 12;
+
     let tax = 0, admin = 0;
 
     if (mode === 'individual') {
-      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs);
+      // Rahastoitu RV ei ole vähennyskelpoinen – käytetään vain vähennyskelpoiset kulut
+      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairsDeductible);
       tax = ti <= 30000 ? ti * 0.30 : 30000*0.30 + (ti-30000)*0.34;
     } else {
       admin = p.adminCost ?? 1500;
       // Poistot sallitaan vain kiinteistöille – asunto-osakkeista ei voi tehdä poistoja (EVL)
       const depr = p.assetType === 'kiinteisto' ? p.price * 0.70 * 0.04 : 0;
-      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairs - admin - depr);
+      // Oy: kaikki vastikkeet vähennyskelpoisia EVL:n mukaan
+      const ti = Math.max(0, rent12 - yInt - maint12 - totalRepairsAll - admin - depr);
       tax = ti * 0.20;
     }
 
-    const cf = rent12 - mp*12 - maint12 - totalRepairs - tax - admin;
+    const cf = rent12 - mp*12 - maint12 - totalRepairsAll - tax - admin;
     cumCF += cf;
 
     yearly.push({
       year: yr,
       rent12: Math.round(rent12), interest: Math.round(yInt), principal: Math.round(yPrinc),
-      maint: Math.round(maint12), repairs: Math.round(totalRepairs), tax: Math.round(tax),
+      maint: Math.round(maint12), repairs: Math.round(totalRepairsAll), tax: Math.round(tax),
       cf: Math.round(cf), cfMo: Math.round(cf/12),
       balance: Math.round(balance), propVal: Math.round(propVal),
-      equity: Math.round(propVal - balance), cumCF: Math.round(cumCF)
+      equity: Math.round(propVal - balance), cumCF: Math.round(cumCF),
+      cumRahastoitu: Math.round(cumRahastoitu)
     });
   }
 
   const horizons = {};
   for (const h of [5, 10, 15]) {
     const y = yearly[h-1];
-    const gain = y.propVal - p.price;
+    // Rahastoitu RV kasvattaa hankintamenoa → pienentää verotettavaa myyntivoittoa
+    const adjustedCost = p.price + (mode === 'individual' ? y.cumRahastoitu : 0);
+    const gain = y.propVal - p.price; // nimellinen arvonnousu
+    const gainAdjusted = y.propVal - adjustedCost; // verotettava voitto (rahastoitu lisätty hankintamenoon)
     let saleNet;
     if (mode === 'individual') {
       const acq = h >= 10 ? 0.40 : 0.20;
       // Verovelvollinen valitsee edullisemman: todellinen voitto vs. hankintameno-olettama
-      const taxableActual = Math.max(0, gain);
+      const taxableActual = Math.max(0, gainAdjusted);
       const taxableHMO    = y.propVal * (1 - acq);
       const gainTax       = Math.min(taxableActual, taxableHMO) * 0.30;
       saleNet = gain - gainTax;

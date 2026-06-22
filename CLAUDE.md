@@ -161,7 +161,10 @@ SQLite, luodaan automaattisesti käynnistyksessä.
 
 **params-kentät:** `price, sqm, equity, rent, loanYears, rate, maintenance, repairs, appreciation, adminCost, assetType, address, hakuTyyppi, geo, hinnat, vuokrat, remontit`
 
-**remontit-alkion rakenne:** `{ id, nimi, vuosi, summa, tyyppi ('taloyhtiö'|'oma'), rahoitus ('kertasuoritus'|'rahoitusvastike'|'laina'), lainaKorko, lainaVuodet }`
+**remontit-alkion rakenne:** `{ id, nimi, vuosi, summa, tyyppi ('taloyhtiö'|'oma'), rahoitus ('kertasuoritus'|'rahoitusvastike'|'laina'), lainaKorko, lainaVuodet, kirjaustyyppi ('rahastoitu'|'tuloutettu') }`
+- `kirjaustyyppi` koskee vain taloyhtiö + rahoitusvastike -yhdistelmää
+- `rahastoitu` (oletus): ei vähennyskelpoinen yksityishenkilöllä vuosittain → lisätään hankintamenoon myyntivoiton laskennassa
+- `tuloutettu`: vähennyskelpoinen vuosittain myös yksityishenkilöllä (vero.fi: "jos vastikkeet on tuloutettu yhtiön kirjanpidossa")
 
 **tulokset-rakenne:** `{ ind: { yearly, horizons }, comp: { yearly, horizons } }`
 
